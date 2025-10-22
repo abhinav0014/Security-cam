@@ -71,3 +71,18 @@ Feel free to submit issues or pull requests for improvements or bug fixes.
 ## License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
+
+## Streaming Server (prototype)
+
+This app contains a prototype embedded HTTP server that serves periodic JPEG frames and a basic WebSocket skeleton for audio.
+
+Quick run (on device):
+
+1. Install the app on a device (minSdkVersion 24).
+2. Open the app -> Open Stream -> Start Server.
+3. From another device on the same LAN open: http://<device-ip>:8080/
+
+Notes and limitations:
+- The MJPEG endpoint currently serves a single JPEG per request (polling in the browser). For true MJPEG multipart streaming or low-latency AV, use WebRTC.
+- Audio streaming is a placeholder. Implementing real-time audio in browsers requires encoding (Opus) and/or WebRTC.
+- Camera frame extraction uses PreviewView.bitmap which is convenient but lower performance than ImageAnalysis YUV pipeline.
