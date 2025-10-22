@@ -1,0 +1,15 @@
+{
+  "name": "Android Development Container",
+  "dockerFile": "Dockerfile",
+  "appPort": [8080],
+  "extensions": [
+    "ms-android.android",
+    "kotlinlang.language",
+    "vscjava.vscode-java-pack"
+  ],
+  "settings": {
+    "java.home": "/usr/lib/jvm/java-11-openjdk",
+    "kotlin.compiler.execution": "in-process"
+  },
+  "postCreateCommand": "chmod +x gradlew && ./gradlew build"
+}

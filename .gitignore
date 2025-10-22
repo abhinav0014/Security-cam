@@ -1,0 +1,91 @@
+# Git ignore for Android projects (Java / Kotlin)
+
+# Build / generated files
+/build/
+/**/build/
+out/
+captures/
+generated/
+
+# Gradle
+.gradle/
+/gradle-app.setting
+.gradle-version
+gradle-wrapper.jar  # keep if you intentionally track; remove this line if you track it
+!gradle/wrapper/gradle-wrapper.properties
+
+# Local configuration (SDK paths, local secrets)
+local.properties
+.env
+*.properties.local
+
+# Signing keys and export artifacts
+*.jks
+*.keystore
+debug.keystore
+*.pem
+
+# Android artifacts
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+*.so
+
+# ProGuard / R8 mapping and outputs
+mapping.txt
+proguard/
+outputs/mapping/
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+.idea/caches/
+.idea/libraries/
+
+# VS Code
+.vscode/
+
+# Native build / NDK / CMake
+.externalNativeBuild/
+.cxx/
+obj/
+cmake-build-*/
+
+# Test / coverage
+test-results/
+build-reports/
+coverage/
+coverage.ec
+*.jacoco
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+hs_err_pid*
+*.orig
+*.rej
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor swap files
+*~
+.*.swp
+*.swo
+
+# Misc
+*.class
+*.kotlin_module
+dependency-reduced-pom.xml
+release/  # if you generate release output locally
+
+# Keep this file tracked
+!.gitignore
