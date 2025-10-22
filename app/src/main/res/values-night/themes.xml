@@ -43,7 +43,6 @@
         <!-- Other colors -->
         <item name="colorOutline">@color/md_theme_dark_outline</item>
         <item name="colorOutlineVariant">@color/md_theme_dark_outlineVariant</item>
-        <item name="colorSurfaceTint">@color/md_theme_dark_surfaceTint</item>
         
         <!-- Material 3 specific attributes -->
         <item name="android:navigationBarColor">@android:color/transparent</item>

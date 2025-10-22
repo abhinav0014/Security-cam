@@ -17,6 +17,11 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     
+    <!-- Battery Optimization -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    
     <!-- Hardware Features -->
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
@@ -39,8 +44,13 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".StreamActivity"
-            android:exported="false" />
+            android:name=".StreamActivity" />
+
+        <service
+            android:name=".service.CameraService"
+            android:enabled="true"/>
+
+        
     </application>
 
 </manifest>

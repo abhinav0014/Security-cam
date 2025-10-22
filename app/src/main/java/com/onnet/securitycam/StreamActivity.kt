@@ -56,8 +56,8 @@ class StreamActivity : AppCompatActivity() {
             cameraStreamer = CameraStreamer(this, previewView)
             cameraStreamer?.start(usingBack)
 
-            server = EmbeddedServer(8080, cameraStreamer!!)
-            server?.start()
+            server = EmbeddedServer(8080)
+            server?.start(30000)
 
         }, ContextCompat.getMainExecutor(this))
     }
