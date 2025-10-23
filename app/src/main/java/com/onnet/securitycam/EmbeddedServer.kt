@@ -24,18 +24,44 @@ class EmbeddedServer(
 
     override fun serveHttp(session: NanoHTTPD.IHTTPSession?): NanoHTTPD.Response {
         val uri = session?.uri ?: "/"
-        return when (uri) {
-            "/" -> newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "text/html", indexHtml)
-            "/settings" -> handleSettings(session)
-            "/info" -> getDeviceInfo()
-            "/frame.jpg" -> getFrame()
-            "/toggleCamera" -> toggleCamera()
-            "/toggleFlash" -> toggleFlash()
-            "/toggleRecording" -> toggleRecording()
-            "/recordings" -> getRecordings()
-            "/download" -> downloadRecording(session)
-            else -> newFixedLengthResponse(NanoHTTPD.Response.Status.NOT_FOUND, "text/plain", "Not found")
+        
+        // Add CORS headers to all responses
+        val response = when {
+            uri == "/" -> 
+                newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "text/html", indexHtml)
+            uri == "/settings" -> 
+                handleSettings(session)
+            uri == "/info" -> 
+                getDeviceInfo()
+            uri == "/frame.jpg" -> 
+                getFrame()
+            uri == "/toggleCamera" -> 
+                toggleCamera()
+            uri == "/toggleFlash" -> 
+                toggleFlash()
+            uri == "/toggleRecording" -> 
+                toggleRecording()
+            uri == "/recordings" && session?.method == NanoHTTPD.Method.GET -> 
+                getRecordings()
+            uri.startsWith("/recordings/") && session?.method == NanoHTTPD.Method.DELETE ->
+                deleteRecording(uri.substringAfterLast("/"))
+            uri == "/download" -> 
+                downloadRecording(session)
+            else -> 
+                newFixedLengthResponse(NanoHTTPD.Response.Status.NOT_FOUND, "text/plain", "Not found")
         }
+        
+        // Add CORS headers
+        response.addHeader("Access-Control-Allow-Origin", "*")
+        response.addHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+        response.addHeader("Access-Control-Allow-Headers", "Content-Type")
+        
+        // Handle preflight requests
+        if (session?.method == NanoHTTPD.Method.OPTIONS) {
+            return response
+        }
+        
+        return response
     }
 
     private fun handleSettings(session: NanoHTTPD.IHTTPSession?): NanoHTTPD.Response {
@@ -140,6 +166,19 @@ class EmbeddedServer(
         }
     }
 
+    private fun deleteRecording(id: String): NanoHTTPD.Response {
+        val file = File(settingsManager.getDefaultRecordingDirectory(), id)
+        return if (file.exists() && file.isFile) {
+            if (file.delete()) {
+                newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/json", """{"status":"success"}""")
+            } else {
+                newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, "application/json", """{"error":"Failed to delete file"}""")
+            }
+        } else {
+            newFixedLengthResponse(NanoHTTPD.Response.Status.NOT_FOUND, "application/json", """{"error":"Recording not found"}""")
+        }
+    }
+
     fun updateFrame(jpegData: ByteArray) {
         currentFrame = jpegData
         lastFrameTimestamp = System.currentTimeMillis()
@@ -149,15 +188,39 @@ class EmbeddedServer(
     private fun notifyMotionDetection() {
         if (settingsManager.cameraSettings.enhancement.motionDetection) {
             val message = """{"type":"motion","timestamp":${System.currentTimeMillis()}}"""
-            synchronized(activeClients) {
-                activeClients.forEach { client ->
-                    try {
-                        client.send(message)
-                    } catch (e: IOException) {
-                        e.printStackTrace()
-                    }
+            broadcastMessage(message)
+        }
+    }
+
+    private fun broadcastMessage(message: String) {
+        synchronized(activeClients) {
+            activeClients.forEach { client ->
+                try {
+                    client.send(message)
+                } catch (e: IOException) {
+                    e.printStackTrace()
                 }
             }
+        }
+    }
+
+    private fun broadcastStatus() {
+        val status = JSONObject().apply {
+            put("type", "status")
+            put("clients", activeClients.size)
+            put("recording", settingsManager.cameraSettings.recording.enabled)
+            put("storage", getStorageStatus())
+        }
+        broadcastMessage(status.toString())
+    }
+
+    private fun getStorageStatus(): JSONObject {
+        val total = settingsManager.cameraSettings.recording.maxStorageSize
+        val used = settingsManager.getStorageUsage()
+        return JSONObject().apply {
+            put("used", used)
+            put("total", total)
+            put("percent", if (total > 0) (used.toFloat() / total * 100).toInt() else 0)
         }
     }
 
@@ -166,12 +229,14 @@ class EmbeddedServer(
             override fun onOpen() {
                 synchronized(activeClients) {
                     activeClients.add(this)
+                    broadcastStatus()
                 }
             }
 
             override fun onClose(code: WebSocketFrame.CloseCode, reason: String, initiatedByRemote: Boolean) {
                 synchronized(activeClients) {
                     activeClients.remove(this)
+                    broadcastStatus()
                 }
             }
 

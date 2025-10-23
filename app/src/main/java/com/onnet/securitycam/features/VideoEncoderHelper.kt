@@ -117,6 +117,23 @@ class VideoEncoderHelper(
         }
     }
 
+    /**
+     * Add raw NV21 frame bytes directly (Y + VU) to the encoder queue.
+     * This allows callers who already have NV21 data or performed their own
+     * conversion (for example from JPEG) to enqueue frames without an ImageProxy.
+     */
+    fun addFrame(frameData: ByteArray) {
+        if (!isRunning) return
+
+        try {
+            if (!frameQueue.offer(frameData)) {
+                Log.w(TAG, "Frame queue full, dropping frame")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error adding raw frame", e)
+        }
+    }
+
     private fun encodeFrame(frameData: ByteArray) {
         val codec = encoder ?: return
 

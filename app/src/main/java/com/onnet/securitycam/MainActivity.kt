@@ -1,258 +1,66 @@
 package com.onnet.securitycam
 
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.wifi.WifiManager
-import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
-import android.provider.Settings
-import android.text.format.Formatter
-import android.widget.Button
-import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
-import com.onnet.securitycam.config.SettingsManager
-import com.onnet.securitycam.features.CameraProcessor
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.onnet.securitycam.ui.SettingsScreen
 
-class MainActivity : AppCompatActivity() {
-    private var server: EmbeddedServer? = null
-    private val settingsManager by lazy { SettingsManager.getInstance(this) }
-    private var cameraProcessor: CameraProcessor? = null
-    private var serverJob: Job? = null
-    
-    private lateinit var tvStatus: TextView
-    private lateinit var tvInstructions: TextView
-    private lateinit var btnAction: Button
+class MainActivity : ComponentActivity() {
 
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        tvStatus = findViewById(R.id.textView)
-        tvInstructions = findViewById(R.id.instructionsText)
-        btnAction = findViewById(R.id.button)
-
-        btnAction.setOnClickListener {
-            if (server == null) {
-                checkAndRequestPermissions()
-            } else {
-                stopServer()
-            }
-        }
-
-        // Auto-start if permissions are already granted
-        if (PermissionHelper.hasAll(this)) {
-            checkBatteryOptimization()
-            startServer()
-        } else {
-            updateUI(false, "Permissions required")
-        }
-    }
-
-    private fun checkAndRequestPermissions() {
-        if (!PermissionHelper.hasAll(this)) {
-            if (PermissionHelper.shouldShowRationale(this)) {
-                showPermissionRationale()
-            } else {
-                PermissionHelper.request(this)
-            }
-        } else {
-            checkBatteryOptimization()
-            startServer()
-        }
-    }
-
-    private fun showPermissionRationale() {
-        AlertDialog.Builder(this)
-            .setTitle("Permissions Required")
-            .setMessage("""
-                SecurityCam requires the following permissions to function:
-                
-                • Camera - To capture video feed
-                • Microphone - For audio recording
-                • Storage - To save recordings
-                • Location - For GPS tagging (optional)
-                • Notifications - For alerts (Android 13+)
-                
-                Please grant all permissions to continue.
-            """.trimIndent())
-            .setPositiveButton("Grant Permissions") { _, _ ->
-                PermissionHelper.request(this)
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun checkBatteryOptimization() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            val packageName = packageName
-            
-            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                AlertDialog.Builder(this)
-                    .setTitle("Battery Optimization")
-                    .setMessage("For best performance, disable battery optimization for SecurityCam. This ensures the camera service runs continuously.")
-                    .setPositiveButton("Settings") { _, _ ->
-                        try {
-                            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                            startActivity(intent)
-                        } catch (e: Exception) {
-                            Toast.makeText(this, "Could not open battery settings", Toast.LENGTH_SHORT).show()
-                        }
+        setContent {
+            // Minimal UI for now; ViewModel integration may be added later once lifecycle-compose
+            // and viewmodel-compose dependencies are available.
+            Scaffold(
+                topBar = { TopAppBar(title = { Text("📹 Live Stream") }) },
+                floatingActionButton = {
+                    FloatingActionButton(onClick = { /* start/stop streaming */ }) {
+                        Text("Start")
                     }
-                    .setNegativeButton("Skip", null)
-                    .show()
-            }
-        }
-    }
-
-    private fun startServer() {
-        if (server != null) {
-            Toast.makeText(this, "Server is already running", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        try {
-            // Initialize camera processor
-            cameraProcessor = CameraProcessor(this) { frame ->
-                server?.updateFrame(frame)
-            }
-            cameraProcessor?.start(settingsManager.cameraSettings)
-
-            // Start embedded server
-            val port = 8080
-            server = EmbeddedServer(port = port, context = applicationContext)
-            server?.start(30000)
-
-            val ipAddress = getIpAddress()
-            updateUI(true, "Server running at:\nhttp://$ipAddress:$port")
-            
-            Toast.makeText(this, "Server started successfully", Toast.LENGTH_SHORT).show()
-
-            // Start periodic status updates
-            startStatusUpdates()
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-            updateUI(false, "Failed to start server: ${e.message}")
-            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-            stopServer()
-        }
-    }
-
-    private fun stopServer() {
-        try {
-            serverJob?.cancel()
-            server?.stop()
-            server = null
-            cameraProcessor?.stop()
-            cameraProcessor = null
-            
-            updateUI(false, "Server stopped")
-            Toast.makeText(this, "Server stopped", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun startStatusUpdates() {
-        serverJob?.cancel()
-        serverJob = CoroutineScope(Dispatchers.Main).launch {
-            while (isActive) {
-                val ipAddress = getIpAddress()
-                val port = 8080
-                updateUI(true, "Server running at:\nhttp://$ipAddress:$port\n\nOpen this URL in any browser on your network")
-                delay(5000)
-            }
-        }
-    }
-
-    private fun updateUI(isRunning: Boolean, statusMessage: String) {
-        runOnUiThread {
-            if (isRunning) {
-                tvStatus.text = "🟢 Server Active"
-                tvStatus.setTextColor(getColor(android.R.color.holo_green_dark))
-                btnAction.text = "Stop Server"
-                btnAction.setBackgroundColor(getColor(android.R.color.holo_red_dark))
-            } else {
-                tvStatus.text = "⚪ Server Offline"
-                tvStatus.setTextColor(getColor(android.R.color.darker_gray))
-                btnAction.text = "Start Server"
-                btnAction.setBackgroundColor(getColor(android.R.color.holo_blue_dark))
-            }
-            tvInstructions.text = statusMessage
-        }
-    }
-
-    private fun getIpAddress(): String {
-        return try {
-            val wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
-            val ipAddress = wifiManager.connectionInfo.ipAddress
-            if (ipAddress != 0) {
-                Formatter.formatIpAddress(ipAddress)
-            } else {
-                "Not connected to WiFi"
-            }
-        } catch (e: Exception) {
-            "Unable to get IP"
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        
-        if (requestCode == PermissionHelper.REQUEST_PERMISSIONS) {
-            if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                Toast.makeText(this, "All permissions granted", Toast.LENGTH_SHORT).show()
-                checkBatteryOptimization()
-                startServer()
-            } else {
-                val deniedPermissions = PermissionHelper.getDeniedPermissions(this)
-                
-                AlertDialog.Builder(this)
-                    .setTitle("Permissions Denied")
-                    .setMessage("The following permissions were denied:\n\n${deniedPermissions.joinToString("\n")}\n\nThe app cannot function without these permissions.")
-                    .setPositiveButton("Retry") { _, _ ->
-                        PermissionHelper.request(this)
+                },
+                floatingActionButtonPosition = FabPosition.End
+            ) { inner ->
+                Column(modifier = Modifier
+                    .padding(inner)
+                    .fillMaxSize(), verticalArrangement = Arrangement.Top) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Status: Idle", modifier = Modifier.padding(16.dp))
+                        Text("URL: rtsp://0.0.0.0:8554/live", modifier = Modifier.padding(16.dp))
                     }
-                    .setNegativeButton("Exit") { _, _ ->
-                        finish()
+
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                        // Placeholder for camera preview
+                        Text("Camera preview placeholder", modifier = Modifier.align(Alignment.Center))
                     }
-                    .setCancelable(false)
-                    .show()
+
+                    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Button(onClick = { /* open settings */ }) { Text("Settings") }
+                        Button(onClick = { /* test stream via ExoPlayer */ }) { Text("Test Stream") }
+                    }
+                }
             }
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        stopServer()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        // Keep server running in background
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // Update UI if server is running
-        if (server != null) {
-            val ipAddress = getIpAddress()
-            updateUI(true, "Server running at:\nhttp://$ipAddress:8080")
         }
     }
 }

@@ -25,36 +25,7 @@ class RecordingManager(
     
     private var videoEncoder: VideoEncoderHelper? = null
 
-    // Minimal VideoEncoderHelper stub to satisfy compilation; replace with real encoder implementation.
-    private class VideoEncoderHelper(
-        private val outputFile: File,
-        private val width: Int,
-        private val height: Int,
-        private val bitrate: Int,
-        private val fps: Int
-    ) {
-        private var frameCount = 0L
-
-        fun start() {
-            // Initialize encoder resources here
-        }
-
-        fun addFrame(imageProxy: ImageProxy) {
-            try {
-                // Encode/process the frame here. This stub just counts frames.
-                frameCount++
-            } finally {
-                // Ensure the ImageProxy is always closed to avoid leaks
-                imageProxy.close()
-            }
-        }
-
-        fun release() {
-            // Release encoder resources here
-        }
-
-        fun getFrameCount(): Long = frameCount
-    }
+    // VideoEncoderHelper handles video encoding implementation
 
     private var recordingJob: Job? = null
     private var outputFile: File? = null
@@ -123,6 +94,24 @@ class RecordingManager(
 
         // Add frame to encoder
         videoEncoder?.addFrame(imageProxy)
+    }
+
+    /**
+     * Accept a JPEG byte array (from CameraProcessor) and pass converted NV21 bytes to the encoder.
+     * This avoids needing to create an ImageProxy when the camera provides JPEG frames directly.
+     */
+    fun processJpegFrame(jpegBytes: ByteArray) {
+        if (!isRecording) return
+
+        try {
+            // Convert JPEG to NV21 by decoding to a YuvImage via Bitmap compression path
+            val yuv = JpegToNV21Converter.jpegToNV21(jpegBytes)
+            if (yuv != null) {
+                videoEncoder?.addFrame(yuv)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing jpeg frame", e)
+        }
     }
 
     /**
