@@ -25,7 +25,7 @@ class EmbeddedServer(
     override fun serveHttp(session: NanoHTTPD.IHTTPSession?): NanoHTTPD.Response {
         val uri = session?.uri ?: "/"
         return when (uri) {
-            "/" -> newFixedLengthResponse(Status.OK, "text/html", indexHtml)
+            "/" -> newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "text/html", indexHtml)
             "/settings" -> handleSettings(session)
             "/info" -> getDeviceInfo()
             "/frame.jpg" -> getFrame()
@@ -34,29 +34,29 @@ class EmbeddedServer(
             "/toggleRecording" -> toggleRecording()
             "/recordings" -> getRecordings()
             "/download" -> downloadRecording(session)
-            else -> newFixedLengthResponse(Status.NOT_FOUND, "text/plain", "Not found")
+            else -> newFixedLengthResponse(NanoHTTPD.Response.Status.NOT_FOUND, "text/plain", "Not found")
         }
     }
 
     private fun handleSettings(session: NanoHTTPD.IHTTPSession?): NanoHTTPD.Response {
         return when (session?.method) {
-            Method.GET -> {
+            NanoHTTPD.Method.GET -> {
                 val settings = settingsManager.cameraSettings
-                newFixedLengthResponse(Status.OK, "application/json", gson.toJson(settings))
+                newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/json", gson.toJson(settings))
             }
-            Method.POST -> {
+            NanoHTTPD.Method.POST -> {
                 val files = mutableMapOf<String, String>()
                 try {
                     session.parseBody(files)
                     val jsonBody = files["postData"]
                     val settings = gson.fromJson(jsonBody, CameraSettings::class.java)
                     settingsManager.saveSettings(settings)
-                    newFixedLengthResponse(Status.OK, "application/json", """{"status":"success"}""")
+                    newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/json", """{"status":"success"}""")
                 } catch (e: Exception) {
-                    newFixedLengthResponse(Status.BAD_REQUEST, "application/json", """{"error":"${e.message}"}""")
+                    newFixedLengthResponse(NanoHTTPD.Response.Status.BAD_REQUEST, "application/json", """{"error":"${e.message}"}""")
                 }
             }
-            else -> newFixedLengthResponse(Status.METHOD_NOT_ALLOWED, "text/plain", "Method not allowed")
+            else -> newFixedLengthResponse(NanoHTTPD.Response.Status.METHOD_NOT_ALLOWED, "text/plain", "Method not allowed")
         }
     }
 
@@ -69,15 +69,15 @@ class EmbeddedServer(
             put("server_port", port)
             put("storage_usage", settingsManager.getStorageUsage())
         }
-        return newFixedLengthResponse(Status.OK, "application/json", info.toString())
+        return newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/json", info.toString())
     }
 
     private fun getFrame(): NanoHTTPD.Response {
         val frame = currentFrame
         return if (frame != null && System.currentTimeMillis() - lastFrameTimestamp < 5000) {
-            newFixedLengthResponse(Status.OK, "image/jpeg", ByteArrayInputStream(frame), frame.size.toLong())
+            newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "image/jpeg", ByteArrayInputStream(frame), frame.size.toLong())
         } else {
-            newFixedLengthResponse(Status.NO_CONTENT, "text/plain", "No recent frame available")
+            newFixedLengthResponse(NanoHTTPD.Response.Status.NO_CONTENT, "text/plain", "No recent frame available")
         }
     }
 
@@ -85,21 +85,21 @@ class EmbeddedServer(
         val settings = settingsManager.cameraSettings
         settings.useBackCamera = !settings.useBackCamera
         settingsManager.saveSettings(settings)
-        return newFixedLengthResponse(Status.OK, "application/json", """{"status":"success","useBackCamera":${settings.useBackCamera}}""")
+        return newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/json", """{"status":"success","useBackCamera":${settings.useBackCamera}}""")
     }
 
     private fun toggleFlash(): NanoHTTPD.Response {
         val settings = settingsManager.cameraSettings
         settings.flashEnabled = !settings.flashEnabled
         settingsManager.saveSettings(settings)
-        return newFixedLengthResponse(Status.OK, "application/json", """{"status":"success","flashEnabled":${settings.flashEnabled}}""")
+        return newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/json", """{"status":"success","flashEnabled":${settings.flashEnabled}}""")
     }
 
     private fun toggleRecording(): NanoHTTPD.Response {
         val settings = settingsManager.cameraSettings
         settings.recording = settings.recording.copy(enabled = !settings.recording.enabled)
         settingsManager.saveSettings(settings)
-        return newFixedLengthResponse(Status.OK, "application/json", """{"status":"success","recording":${settings.recording.enabled}}""")
+        return newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/json", """{"status":"success","recording":${settings.recording.enabled}}""")
     }
 
     private fun getRecordings(): NanoHTTPD.Response {
@@ -117,7 +117,7 @@ class EmbeddedServer(
             } ?: emptyList()
         
         return newFixedLengthResponse(
-            Status.OK, 
+            NanoHTTPD.Response.Status.OK, 
             "application/json", 
             JSONObject().put("recordings", recordings).toString()
         )
@@ -125,18 +125,18 @@ class EmbeddedServer(
 
     private fun downloadRecording(session: NanoHTTPD.IHTTPSession?): NanoHTTPD.Response {
         val id = session?.parameters?.get("id")?.firstOrNull() 
-            ?: return newFixedLengthResponse(Status.BAD_REQUEST, "text/plain", "Recording ID required")
+            ?: return newFixedLengthResponse(NanoHTTPD.Response.Status.BAD_REQUEST, "text/plain", "Recording ID required")
 
         val file = File(settingsManager.getDefaultRecordingDirectory(), id)
         return if (file.exists() && file.isFile) {
             newFixedLengthResponse(
-                Status.OK,
+                NanoHTTPD.Response.Status.OK,
                 "video/mp4",
                 file.inputStream(),
                 file.length()
             )
         } else {
-            newFixedLengthResponse(Status.NOT_FOUND, "text/plain", "Recording not found")
+            newFixedLengthResponse(NanoHTTPD.Response.Status.NOT_FOUND, "text/plain", "Recording not found")
         }
     }
 
@@ -196,8 +196,8 @@ class EmbeddedServer(
 
             override fun onPong(message: WebSocketFrame?) {}
 
-            override fun onException(e: Exception?) {
-                e?.printStackTrace()
+            override fun onException(exception: IOException) {
+                exception.printStackTrace()
                 synchronized(activeClients) {
                     activeClients.remove(this)
                 }
