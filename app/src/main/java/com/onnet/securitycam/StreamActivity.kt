@@ -8,9 +8,6 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class StreamActivity : AppCompatActivity() {
     private lateinit var previewView: PreviewView
@@ -51,14 +48,23 @@ class StreamActivity : AppCompatActivity() {
             try {
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(this, selector, preview)
-            } catch (e: Exception) { e.printStackTrace() }
+            } catch (e: Exception) { 
+                e.printStackTrace() 
+            }
 
             cameraStreamer = CameraStreamer(this, previewView)
             cameraStreamer?.start(usingBack)
 
-            server = EmbeddedServer(8080)
+            // Fixed: Added context parameter
+            server = EmbeddedServer(port = 8080, context = applicationContext)
             server?.start(30000)
 
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        server?.stop()
+        cameraStreamer?.stop()
     }
 }
