@@ -86,8 +86,8 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.action_settings -> {
-                // TODO: Show settings fragment/dialog
-                Snackbar.make(toolbar, "Settings clicked", Snackbar.LENGTH_SHORT).show()
+                // Navigate to Settings Activity
+                startActivity(android.content.Intent(this, SettingsActivity::class.java))
                 true
             }
             R.id.action_server -> {
