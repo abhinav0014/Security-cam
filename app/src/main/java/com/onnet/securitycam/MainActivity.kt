@@ -1,4 +1,3 @@
-// create a basic kotlin file for main activity with viewbinding and menu inflation 
 package com.onnet.securitycam
 
 import android.os.Bundle
@@ -15,6 +14,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        
+        // Set up the toolbar
+        setSupportActionBar(binding.topAppBar)
+        supportActionBar?.title = "Security Cam"
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
