@@ -29,11 +29,14 @@ class CameraProcessor(
     private val cameraHandler = Handler(cameraThread.looper)
     private val cameraOpenCloseLock = Semaphore(1)
 
-    fun start(settings: CameraSettings) {
+    fun start(settings: CameraSettings, previewSurface: Surface? = null) {
+        this.previewSurface = previewSurface
         val cameraId = getCameraId(settings.useBackCamera)
         setupImageReader(settings)
         openCamera(cameraId)
     }
+
+    private var previewSurface: Surface? = null
 
     private fun getCameraId(useBack: Boolean): String {
         return cameraManager.cameraIdList.first { id ->
@@ -101,14 +104,17 @@ class CameraProcessor(
     private fun createCaptureSession() {
         try {
             val device = cameraDevice ?: return
-            val surfaces = listOf(imageReader?.surface ?: return)
+            val targets = mutableListOf<Surface>()
+            imageReader?.surface?.let { targets.add(it) }
+            previewSurface?.let { targets.add(it) }
 
-            device.createCaptureSession(surfaces, object : CameraCaptureSession.StateCallback() {
+            device.createCaptureSession(targets, object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
                     captureSession = session
                     try {
                         val builder = device.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-                        builder.addTarget(imageReader?.surface ?: return)
+                        imageReader?.surface?.let { builder.addTarget(it) }
+                        previewSurface?.let { builder.addTarget(it) }
                         session.setRepeatingRequest(builder.build(), null, cameraHandler)
                     } catch (e: CameraAccessException) {
                         e.printStackTrace()
