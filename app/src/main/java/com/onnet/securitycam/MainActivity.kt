@@ -3,6 +3,8 @@ package com.onnet.securitycam
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.content.Intent
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.onnet.securitycam.databinding.ActivityMainBinding
 
@@ -29,6 +31,16 @@ class MainActivity : AppCompatActivity() {
         return when (item.itemId) {
             R.id.action_settings -> {
                 // Handle settings action
+                val intent = Intent(this, SettingsActivity::class.java)
+                startActivity(intent)
+                true
+            }
+            R.id.action_about -> {
+                Toast.makeText(this, "About selected", Toast.LENGTH_SHORT).show()
+                true
+            }
+            R.id.action_server -> {
+                Toast.makeText(this, "Server selected", Toast.LENGTH_SHORT).show()
                 true
             }
             else -> super.onOptionsItemSelected(item)
