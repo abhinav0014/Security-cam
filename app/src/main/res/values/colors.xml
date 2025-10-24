@@ -1,20 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Material 3 Dynamic Colors - Light Theme -->
-    <color name="seed">#006C51</color> <!-- Primary brand color -->
-    
-    <color name="md_theme_light_primary">#006C51</color>
+    <!-- Custom Color Palette -->
+    <color name="lavender">#B57EDC</color>
+    <color name="sky_blue">#7EDCE6</color>
+    <color name="soft_peach">#E6B57E</color>
+
+    <!-- Material 3 Colors - Light Theme -->
+    <color name="md_theme_light_primary">@color/lavender</color>
     <color name="md_theme_light_onPrimary">#FFFFFF</color>
-    <color name="md_theme_light_primaryContainer">#89F8D0</color>
-    <color name="md_theme_light_onPrimaryContainer">#002116</color>
-    <color name="md_theme_light_secondary">#4B635A</color>
+    <color name="md_theme_light_primaryContainer">#EFE0F7</color>
+    <color name="md_theme_light_onPrimaryContainer">#431B6C</color>
+    <color name="md_theme_light_secondary">@color/sky_blue</color>
     <color name="md_theme_light_onSecondary">#FFFFFF</color>
-    <color name="md_theme_light_secondaryContainer">#CEE9DD</color>
-    <color name="md_theme_light_onSecondaryContainer">#072019</color>
-    <color name="md_theme_light_tertiary">#3D6373</color>
+    <color name="md_theme_light_secondaryContainer">#E0F7F9</color>
+    <color name="md_theme_light_onSecondaryContainer">#1B646C</color>
+    <color name="md_theme_light_tertiary">@color/soft_peach</color>
     <color name="md_theme_light_onTertiary">#FFFFFF</color>
-    <color name="md_theme_light_tertiaryContainer">#C1E8FB</color>
-    <color name="md_theme_light_onTertiaryContainer">#001F29</color>
+    <color name="md_theme_light_tertiaryContainer">#F9F0E0</color>
+    <color name="md_theme_light_onTertiaryContainer">#6C431B</color>
     <color name="md_theme_light_error">#BA1A1A</color>
     <color name="md_theme_light_errorContainer">#FFDAD6</color>
     <color name="md_theme_light_onError">#FFFFFF</color>

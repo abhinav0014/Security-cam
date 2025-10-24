@@ -55,50 +55,16 @@
         android:hardwareAccelerated="true"
         tools:targetApi="31">
         
-        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="portrait"
-            android:launchMode="singleTop"
-            android:configChanges="orientation|screenSize|keyboardHidden">
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <!-- Settings Activity -->
-        <activity
-            android:name=".SettingsActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:parentActivityName=".MainActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value=".MainActivity" />
-        </activity>
-
-        <!-- Stream Activity -->
-        <activity
-            android:name=".StreamActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:parentActivityName=".MainActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value=".MainActivity" />
-        </activity>
-
-        <!-- Camera Foreground Service -->
-        <service
-            android:name=".services.CameraService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="camera"
-            android:stopWithTask="false" />
 
     </application>
 
