@@ -28,14 +28,14 @@ class CameraService : Service(), LifecycleOwner {
     private lateinit var preferences: PreferencesManager
     private var codec: MediaCodec? = null
     private var hlsWriter: HLSWriter? = null
+    private var streamServer: StreamServer? = null
     private var isEncodingActive = false
     
-    // Lifecycle implementation
+    // Lifecycle implementation - FIX for compilation error
     private val lifecycleRegistry = LifecycleRegistry(this)
     
-    override fun getLifecycle(): Lifecycle {
-        return lifecycleRegistry
-    }
+    override val lifecycle: Lifecycle
+        get() = lifecycleRegistry
 
     override fun onCreate() {
         super.onCreate()
@@ -44,6 +44,11 @@ class CameraService : Service(), LifecycleOwner {
         startForegroundNotification()
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+        
+        // Start HTTP server
+        startHttpServer()
+        
+        // Start camera stream
         startCameraStream()
     }
 
@@ -68,6 +73,17 @@ class CameraService : Service(), LifecycleOwner {
             .build()
 
         startForeground(1, notification)
+    }
+
+    private fun startHttpServer() {
+        try {
+            val hlsDir = File(filesDir, "hls")
+            streamServer = StreamServer(preferences.getPort(), hlsDir, preferences)
+            streamServer?.start()
+            Log.d(TAG, "HTTP Server started on port ${preferences.getPort()}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start HTTP server: ${e.message}", e)
+        }
     }
 
     private fun startCameraStream() {
@@ -96,7 +112,6 @@ class CameraService : Service(), LifecycleOwner {
                 imageAnalysis.setAnalyzer(executor) { imageProxy ->
                     try {
                         if (isEncodingActive) {
-                            // Process the image frame
                             processFrame(imageProxy)
                         }
                     } catch (e: Exception) {
@@ -110,10 +125,7 @@ class CameraService : Service(), LifecycleOwner {
                 val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
                 try {
-                    // Unbind all use cases before rebinding
                     cameraProvider.unbindAll()
-                    
-                    // Bind to lifecycle
                     cameraProvider.bindToLifecycle(
                         this,
                         cameraSelector,
@@ -163,17 +175,28 @@ class CameraService : Service(), LifecycleOwner {
     }
 
     private fun processFrame(imageProxy: ImageProxy) {
-        // This is where you would convert YUV to the format your encoder expects
-        // For now, this is a placeholder
-        // You'll need to implement YUV to NV21/NV12 conversion and feed to encoder
-        
-        // Example of getting image data:
-        val yBuffer = imageProxy.planes[0].buffer
-        val uBuffer = imageProxy.planes[1].buffer
-        val vBuffer = imageProxy.planes[2].buffer
-        
-        // TODO: Convert YUV_420_888 to format suitable for MediaCodec
-        // and queue input buffer
+        try {
+            val nv21Data = Utils.yuv420ToNv21(imageProxy)
+            
+            codec?.let { encoder ->
+                val inputBufferIndex = encoder.dequeueInputBuffer(10000)
+                if (inputBufferIndex >= 0) {
+                    val inputBuffer = encoder.getInputBuffer(inputBufferIndex)
+                    inputBuffer?.clear()
+                    inputBuffer?.put(nv21Data)
+                    
+                    encoder.queueInputBuffer(
+                        inputBufferIndex,
+                        0,
+                        nv21Data.size,
+                        System.nanoTime() / 1000,
+                        0
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Frame processing error: ${e.message}", e)
+        }
     }
 
     private fun startEncodingThread() {
@@ -204,6 +227,10 @@ class CameraService : Service(), LifecycleOwner {
                             index == MediaCodec.INFO_TRY_AGAIN_LATER -> {
                                 // No output available yet
                             }
+                            else -> {
+                                // Handle other cases
+                                Log.w(TAG, "Unexpected output buffer index: $index")
+                            }
                         }
                     }
                 } catch (e: Exception) {
@@ -226,6 +253,9 @@ class CameraService : Service(), LifecycleOwner {
             
             hlsWriter?.close()
             hlsWriter = null
+            
+            streamServer?.stop()
+            streamServer = null
             
             executor.shutdown()
         } catch (e: Exception) {
