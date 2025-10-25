@@ -136,12 +136,12 @@ class MainActivity : AppCompatActivity() {
             tvBitrate.text = Utils.formatBitrate(preferences.getBitrate())
             
             btnToggleStream.text = if (isStreaming) "Stop Streaming" else "Start Streaming"
-            btnToggleStream.setBackgroundColor(
-                ContextCompat.getColor(
-                    this@MainActivity,
-                    if (isStreaming) android.R.color.holo_red_dark 
-                    else android.R.color.holo_green_dark
-                )
+            
+            // Fix: Use backgroundTintList instead of setBackgroundColor for Material3 buttons
+            btnToggleStream.backgroundTintList = ContextCompat.getColorStateList(
+                this@MainActivity,
+                if (isStreaming) android.R.color.holo_red_dark 
+                else android.R.color.holo_green_dark
             )
         }
     }

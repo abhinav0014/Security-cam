@@ -62,6 +62,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".SettingsActivity" android:exported="false" />
+        <!-- <service
+            android:name=".ForegroundCameraService"
+            android:exported="false"
+            android:foregroundServiceType="camera|location" />
+        <service
+            android:name=".UploadService"
+            android:exported="false" />
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver> -->
 
     </application>
 
