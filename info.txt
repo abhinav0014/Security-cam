@@ -1,4 +1,3 @@
-Starting a Gradle Daemon, 1 incompatible and 1 stopped Daemons could not be reused, use --status for details
 Configuration on demand is an incubating feature.
 > Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
@@ -6,18 +5,17 @@ Configuration on demand is an incubating feature.
 > Task :app:dataBindingMergeDependencyArtifactsDebug UP-TO-DATE
 > Task :app:generateDebugResValues UP-TO-DATE
 > Task :app:generateDebugResources UP-TO-DATE
-> Task :app:mergeDebugResources UP-TO-DATE
-> Task :app:packageDebugResources UP-TO-DATE
-> Task :app:parseDebugLocalResources UP-TO-DATE
-> Task :app:dataBindingGenBaseClassesDebug
+> Task :app:packageDebugResources
+> Task :app:parseDebugLocalResources
 > Task :app:checkDebugAarMetadata UP-TO-DATE
-> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths
+> Task :app:mergeDebugResources
 > Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:dataBindingGenBaseClassesDebug
 > Task :app:extractDeepLinksDebug UP-TO-DATE
 > Task :app:processDebugMainManifest UP-TO-DATE
 > Task :app:processDebugManifest UP-TO-DATE
 > Task :app:processDebugManifestForPackage UP-TO-DATE
-> Task :app:processDebugResources UP-TO-DATE
 > Task :app:javaPreCompileDebug UP-TO-DATE
 > Task :app:mergeDebugShaders UP-TO-DATE
 > Task :app:compileDebugShaders NO-SOURCE
@@ -35,11 +33,18 @@ Configuration on demand is an incubating feature.
 > Task :app:validateSigningDebug UP-TO-DATE
 > Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:processDebugResources
 
 > Task :app:compileDebugKotlin FAILED
-e: file:///workspaces/Security-cam/app/src/main/java/com/onnet/securitycam/CameraService.kt:23:1 Class 'CameraService' is not abstract and does not implement abstract member public abstract val lifecycle: Lifecycle defined in androidx.lifecycle.LifecycleOwner
-e: file:///workspaces/Security-cam/app/src/main/java/com/onnet/securitycam/CameraService.kt:36:5 'getLifecycle' overrides nothing
-e: file:///workspaces/Security-cam/app/src/main/java/com/onnet/securitycam/CameraService.kt:188:25 'when' expression must be exhaustive, add necessary 'else' branch
+e: file:///workspaces/Security-cam/app/src/main/java/com/onnet/securitycam/CameraService.kt:179:28 Unresolved reference: Utils
+e: file:///workspaces/Security-cam/app/src/main/java/com/onnet/securitycam/CameraService.kt:186:34 Overload resolution ambiguity: 
+public open fun put(p0: ByteBuffer!): ByteBuffer! defined in java.nio.ByteBuffer
+public abstract fun put(p0: Byte): ByteBuffer! defined in java.nio.ByteBuffer
+public final fun put(p0: ByteArray!): ByteBuffer! defined in java.nio.ByteBuffer
+e: file:///workspaces/Security-cam/app/src/main/java/com/onnet/securitycam/MainActivity.kt:121:25 Unresolved reference: Utils
+e: file:///workspaces/Security-cam/app/src/main/java/com/onnet/securitycam/MainActivity.kt:136:30 Unresolved reference: Utils
+e: file:///workspaces/Security-cam/app/src/main/java/com/onnet/securitycam/MainActivity.kt:150:25 Unresolved reference: Utils
+e: file:///workspaces/Security-cam/app/src/main/java/com/onnet/securitycam/StreamServer.kt:363:27 Unresolved reference: Utils
 
 FAILURE: Build failed with an exception.
 
@@ -252,5 +257,5 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 34s
-29 actionable tasks: 2 executed, 27 up-to-date
+BUILD FAILED in 18s
+29 actionable tasks: 7 executed, 22 up-to-date
