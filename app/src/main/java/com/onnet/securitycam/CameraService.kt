@@ -31,7 +31,7 @@ class CameraService : Service(), LifecycleOwner {
     private var streamServer: StreamServer? = null
     private var isEncodingActive = false
     
-    // Lifecycle implementation - FIX for compilation error
+    // Lifecycle implementation
     private val lifecycleRegistry = LifecycleRegistry(this)
     
     override val lifecycle: Lifecycle
@@ -78,6 +78,9 @@ class CameraService : Service(), LifecycleOwner {
     private fun startHttpServer() {
         try {
             val hlsDir = File(filesDir, "hls")
+            if (!hlsDir.exists()) {
+                hlsDir.mkdirs()
+            }
             streamServer = StreamServer(preferences.getPort(), hlsDir, preferences)
             streamServer?.start()
             Log.d(TAG, "HTTP Server started on port ${preferences.getPort()}")
@@ -183,7 +186,8 @@ class CameraService : Service(), LifecycleOwner {
                 if (inputBufferIndex >= 0) {
                     val inputBuffer = encoder.getInputBuffer(inputBufferIndex)
                     inputBuffer?.clear()
-                    inputBuffer?.put(nv21Data)
+                    // Fixed: Explicitly specify we're putting a ByteArray
+                    inputBuffer?.put(nv21Data, 0, nv21Data.size)
                     
                     encoder.queueInputBuffer(
                         inputBufferIndex,
@@ -228,7 +232,6 @@ class CameraService : Service(), LifecycleOwner {
                                 // No output available yet
                             }
                             else -> {
-                                // Handle other cases
                                 Log.w(TAG, "Unexpected output buffer index: $index")
                             }
                         }
