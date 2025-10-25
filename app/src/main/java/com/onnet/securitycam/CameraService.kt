@@ -30,6 +30,7 @@ class CameraService : Service(), LifecycleOwner {
     private var hlsWriter: HLSWriter? = null
     private var streamServer: StreamServer? = null
     private var isEncodingActive = false
+    private var frameCount = 0
     
     // Lifecycle implementation
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -72,7 +73,11 @@ class CameraService : Service(), LifecycleOwner {
             .setOngoing(true)
             .build()
 
-        startForeground(1, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
+        } else {
+            startForeground(1, notification)
+        }
     }
 
     private fun startHttpServer() {
@@ -81,9 +86,14 @@ class CameraService : Service(), LifecycleOwner {
             if (!hlsDir.exists()) {
                 hlsDir.mkdirs()
             }
+            
+            // Clean up old segments
+            hlsDir.listFiles()?.forEach { it.delete() }
+            
             streamServer = StreamServer(preferences.getPort(), hlsDir, preferences)
             streamServer?.start()
             Log.d(TAG, "HTTP Server started on port ${preferences.getPort()}")
+            Log.d(TAG, "HLS directory: ${hlsDir.absolutePath}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start HTTP server: ${e.message}", e)
         }
@@ -102,15 +112,15 @@ class CameraService : Service(), LifecycleOwner {
                     else -> Size(1920, 1080)
                 }
 
+                // Setup encoder first
+                setupEncoder(resolution)
+
                 // Setup Image Analysis
                 val imageAnalysis = ImageAnalysis.Builder()
                     .setTargetResolution(resolution)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
                     .build()
-
-                // Setup encoder
-                setupEncoder(resolution)
 
                 imageAnalysis.setAnalyzer(executor) { imageProxy ->
                     try {
@@ -154,19 +164,23 @@ class CameraService : Service(), LifecycleOwner {
             val bitrate = preferences.getBitrate()
 
             val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height)
+            
+            // Try different color formats for better compatibility
             format.setInteger(
                 MediaFormat.KEY_COLOR_FORMAT,
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar
             )
             format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
             format.setInteger(MediaFormat.KEY_FRAME_RATE, fps)
-            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2)
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1) // Keyframe every 1 second
+            format.setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
 
             codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
             codec?.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             codec?.start()
 
-            hlsWriter = HLSWriter(this, File(filesDir, "hls"))
+            val hlsDir = File(filesDir, "hls")
+            hlsWriter = HLSWriter(this, hlsDir)
             isEncodingActive = true
             
             startEncodingThread()
@@ -179,23 +193,37 @@ class CameraService : Service(), LifecycleOwner {
 
     private fun processFrame(imageProxy: ImageProxy) {
         try {
-            val nv21Data = Utils.yuv420ToNv21(imageProxy)
+            if (codec == null || !isEncodingActive) return
+            
+            val nv21Data = yuv420ToNv21(imageProxy)
             
             codec?.let { encoder ->
-                val inputBufferIndex = encoder.dequeueInputBuffer(10000)
-                if (inputBufferIndex >= 0) {
-                    val inputBuffer = encoder.getInputBuffer(inputBufferIndex)
-                    inputBuffer?.clear()
-                    // Fixed: Explicitly specify we're putting a ByteArray
-                    inputBuffer?.put(nv21Data, 0, nv21Data.size)
-                    
-                    encoder.queueInputBuffer(
-                        inputBufferIndex,
-                        0,
-                        nv21Data.size,
-                        System.nanoTime() / 1000,
-                        0
-                    )
+                try {
+                    val inputBufferIndex = encoder.dequeueInputBuffer(10000)
+                    if (inputBufferIndex >= 0) {
+                        val inputBuffer = encoder.getInputBuffer(inputBufferIndex)
+                        inputBuffer?.clear()
+                        inputBuffer?.put(nv21Data)
+                        
+                        encoder.queueInputBuffer(
+                            inputBufferIndex,
+                            0,
+                            nv21Data.size,
+                            System.nanoTime() / 1000,
+                            0
+                        )
+                        
+                        frameCount++
+                        if (frameCount % 30 == 0) {
+                            Log.d(TAG, "Processed $frameCount frames")
+                        }else{
+                            Log.d(TAG, "Processed $frameCount frames")
+                        }
+                    }else {
+                        Log.w(TAG, "No available input buffer")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error queuing input buffer: ${e.message}")
                 }
             }
         } catch (e: Exception) {
@@ -203,9 +231,57 @@ class CameraService : Service(), LifecycleOwner {
         }
     }
 
+    private fun yuv420ToNv21(image: ImageProxy): ByteArray {
+        val width = image.width
+        val height = image.height
+        val ySize = width * height
+        val uvSize = width * height / 2
+        val nv21 = ByteArray(ySize + uvSize)
+
+        val yBuffer = image.planes[0].buffer
+        val uBuffer = image.planes[1].buffer
+        val vBuffer = image.planes[2].buffer
+
+        val yRowStride = image.planes[0].rowStride
+        val yPixelStride = image.planes[0].pixelStride
+        val uvRowStride = image.planes[1].rowStride
+        val uvPixelStride = image.planes[1].pixelStride
+
+        // Copy Y plane
+        var pos = 0
+        for (row in 0 until height) {
+            yBuffer.position(row * yRowStride)
+            for (col in 0 until width) {
+                nv21[pos++] = yBuffer.get(col * yPixelStride)
+            }
+        }
+
+        // Copy UV planes (interleaved as VU for NV21)
+        val uvHeight = height / 2
+        val uvWidth = width / 2
+        
+        for (row in 0 until uvHeight) {
+            for (col in 0 until uvWidth) {
+                val vIndex = row * uvRowStride + col * uvPixelStride
+                val uIndex = row * uvRowStride + col * uvPixelStride
+                nv21[pos++] = vBuffer.get(vIndex)
+                nv21[pos++] = uBuffer.get(uIndex)
+            }
+        }
+
+        yBuffer.rewind()
+        uBuffer.rewind()
+        vBuffer.rewind()
+
+        return nv21
+    }
+
     private fun startEncodingThread() {
         Thread {
             val bufferInfo = MediaCodec.BufferInfo()
+            var outputCount = 0
+            
+            Log.d(TAG, "Encoding thread started")
             
             while (isEncodingActive) {
                 try {
@@ -221,6 +297,11 @@ class CameraService : Service(), LifecycleOwner {
                                     buffer.clear()
                                     
                                     hlsWriter?.writeSample(data, bufferInfo)
+                                    
+                                    outputCount++
+                                    if (outputCount % 30 == 0) {
+                                        Log.d(TAG, "Encoded $outputCount samples, size: ${bufferInfo.size}")
+                                    }
                                 }
                                 encoder.releaseOutputBuffer(index, false)
                             }
@@ -238,9 +319,11 @@ class CameraService : Service(), LifecycleOwner {
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Encoding thread error: ${e.message}", e)
-                    break
+                    if (!isEncodingActive) break
                 }
             }
+            
+            Log.d(TAG, "Encoding thread stopped")
         }.start()
     }
 
@@ -250,6 +333,9 @@ class CameraService : Service(), LifecycleOwner {
         isEncodingActive = false
         
         try {
+            // Give encoding thread time to finish
+            Thread.sleep(500)
+            
             codec?.stop()
             codec?.release()
             codec = null
@@ -261,6 +347,8 @@ class CameraService : Service(), LifecycleOwner {
             streamServer = null
             
             executor.shutdown()
+            
+            Log.d(TAG, "Service destroyed, processed $frameCount frames")
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping service: ${e.message}", e)
         }

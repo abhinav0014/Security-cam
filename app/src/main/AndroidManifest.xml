@@ -54,6 +54,7 @@
         android:hardwareAccelerated="true"
         tools:targetApi="31">
         
+        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -62,22 +63,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".SettingsActivity" android:exported="false" />
-        <!-- <service
-            android:name=".ForegroundCameraService"
+        
+        <!-- Settings Activity -->
+        <activity 
+            android:name=".SettingsActivity" 
             android:exported="false"
-            android:foregroundServiceType="camera|location" />
+            android:parentActivityName=".MainActivity" />
+        
+        <!-- Camera Service -->
         <service
-            android:name=".UploadService"
-            android:exported="false" />
-        <receiver
-            android:name=".BootReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver> -->
+            android:name=".CameraService"
+            android:exported="false"
+            android:foregroundServiceType="camera" />
 
     </application>
 
