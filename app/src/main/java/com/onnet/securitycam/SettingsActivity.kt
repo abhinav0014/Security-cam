@@ -1,4 +1,3 @@
-// create a simple kotlin file for settings activity with viewbinding and a back button to return 
 package com.onnet.securitycam
 
 import android.os.Bundle
@@ -15,8 +14,22 @@ class SettingsActivity : AppCompatActivity() {
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Set up the toolbar
+        setSupportActionBar(binding.topAppBar)
+        
         // Enable the Up button
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.title = "Settings"
     }
 
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            android.R.id.home -> {
+                // Handle the back button
+                onBackPressed()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
 }
