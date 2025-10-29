@@ -13,6 +13,7 @@ import android.util.Size
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -29,8 +30,10 @@ class CameraService : Service(), LifecycleOwner {
     private var codec: MediaCodec? = null
     private var hlsWriter: HLSWriter? = null
     private var streamServer: StreamServer? = null
+    private var webSocketServer: WebSocketServer? = null
     private var isEncodingActive = false
     private var frameCount = 0
+    private var audioCapture: AudioCapture? = null
     
     // Lifecycle implementation
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -46,17 +49,48 @@ class CameraService : Service(), LifecycleOwner {
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         
-        // Start HTTP server
-        startHttpServer()
+        // Start streaming servers
+        startServers()
         
         // Start camera stream
         startCameraStream()
+        
+        // Start audio capture if enabled
+        if (preferences.isAudioEnabled()) {
+            startAudioCapture()
+        }
+    }
+    
+    private fun startAudioCapture() {
+        // Check RECORD_AUDIO permission
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) 
+            != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "Cannot start audio capture: RECORD_AUDIO permission not granted")
+            return
+        }
+        try {
+            audioCapture = AudioCapture(
+                sampleRate = preferences.getAudioSampleRate(),
+                bitrate = preferences.getAudioBitrate(),
+                onFormatChanged = { format ->
+                    hlsWriter?.setAudioFormat(format)
+                    webSocketServer?.setAudioFormat(format)
+                    Log.d(TAG, "Audio format set: $format")
+                }
+            ) { data, bufferInfo ->
+                hlsWriter?.writeAudioSample(data, bufferInfo)
+                webSocketServer?.broadcastAudioFrame(data, bufferInfo)
+            }
+            audioCapture?.start()
+            Log.d(TAG, "Audio capture started")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start audio capture", e)
+        }
     }
 
     private fun startForegroundNotification() {
         val channelId = "camera_stream_channel"
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
@@ -65,14 +99,12 @@ class CameraService : Service(), LifecycleOwner {
             )
             manager.createNotificationChannel(channel)
         }
-
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Security Camera")
-            .setContentText("Streaming active on port ${preferences.getPort()}")
+            .setContentText("Streaming video${if (preferences.isAudioEnabled()) " + audio" else ""} on port ${preferences.getPort()}")
             .setSmallIcon(android.R.drawable.presence_video_online)
             .setOngoing(true)
             .build()
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(1, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
         } else {
@@ -80,7 +112,7 @@ class CameraService : Service(), LifecycleOwner {
         }
     }
 
-    private fun startHttpServer() {
+    private fun startServers() {
         try {
             val hlsDir = File(filesDir, "hls")
             if (!hlsDir.exists()) {
@@ -90,12 +122,27 @@ class CameraService : Service(), LifecycleOwner {
             // Clean up old segments
             hlsDir.listFiles()?.forEach { it.delete() }
             
-            streamServer = StreamServer(preferences.getPort(), hlsDir, preferences)
-            streamServer?.start()
-            Log.d(TAG, "HTTP Server started on port ${preferences.getPort()}")
-            Log.d(TAG, "HLS directory: ${hlsDir.absolutePath}")
+            val protocol = preferences.getStreamProtocol()
+            
+            // Start HTTP server for HLS if needed
+            if (protocol == PreferencesManager.PROTOCOL_HLS || protocol == PreferencesManager.PROTOCOL_BOTH) {
+                streamServer = StreamServer(preferences.getPort(), hlsDir, preferences, this)
+                streamServer?.start()
+                Log.d(TAG, "HTTP Server started on port ${preferences.getPort()}")
+                Log.d(TAG, "HLS directory: ${hlsDir.absolutePath}")
+            }
+            
+            // Start WebSocket server if needed
+            if (protocol == PreferencesManager.PROTOCOL_WEBSOCKET || protocol == PreferencesManager.PROTOCOL_BOTH) {
+                val wsPort = preferences.getWebSocketPort()
+                webSocketServer = WebSocketServer(wsPort)
+                webSocketServer?.start()
+                Log.d(TAG, "WebSocket Server started on port $wsPort")
+            }
+            
+            Log.d(TAG, "Streaming protocol: $protocol")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start HTTP server: ${e.message}", e)
+            Log.e(TAG, "Failed to start servers: ${e.message}", e)
         }
     }
 
@@ -179,8 +226,12 @@ class CameraService : Service(), LifecycleOwner {
             codec?.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             codec?.start()
 
-            val hlsDir = File(filesDir, "hls")
-            hlsWriter = HLSWriter(this, hlsDir)
+            val protocol = preferences.getStreamProtocol()
+            if (protocol == PreferencesManager.PROTOCOL_HLS || protocol == PreferencesManager.PROTOCOL_BOTH) {
+                val hlsDir = File(filesDir, "hls")
+                hlsWriter = HLSWriter(this, hlsDir, preferences.isAudioEnabled())
+            }
+            
             isEncodingActive = true
             
             startEncodingThread()
@@ -292,11 +343,21 @@ class CameraService : Service(), LifecycleOwner {
                             index >= 0 -> {
                                 val outputBuffer: ByteBuffer? = encoder.getOutputBuffer(index)
                                 outputBuffer?.let { buffer ->
+                                    if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+                                        // Skip codec config frames - they are handled in format change
+                                        encoder.releaseOutputBuffer(index, false)
+                                        return@let
+                                    }
+                                    
+                                    // Set proper buffer position and limit
+                                    buffer.position(bufferInfo.offset)
+                                    buffer.limit(bufferInfo.offset + bufferInfo.size)
+                                    
                                     val data = ByteArray(bufferInfo.size)
                                     buffer.get(data)
-                                    buffer.clear()
                                     
-                                    hlsWriter?.writeSample(data, bufferInfo)
+                                    hlsWriter?.writeVideoSample(data, bufferInfo)
+                                    webSocketServer?.broadcastVideoFrame(data, bufferInfo)
                                     
                                     outputCount++
                                     if (outputCount % 30 == 0) {
@@ -307,7 +368,9 @@ class CameraService : Service(), LifecycleOwner {
                             }
                             index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                                 val newFormat = encoder.outputFormat
-                                Log.d(TAG, "Output format changed: $newFormat")
+                                hlsWriter?.setVideoFormat(newFormat)
+                                webSocketServer?.setVideoFormat(newFormat)
+                                Log.d(TAG, "Video format changed: $newFormat")
                             }
                             index == MediaCodec.INFO_TRY_AGAIN_LATER -> {
                                 // No output available yet
@@ -336,6 +399,10 @@ class CameraService : Service(), LifecycleOwner {
             // Give encoding thread time to finish
             Thread.sleep(500)
             
+            // Stop and release audio capture
+            audioCapture?.release()
+            audioCapture = null
+            
             codec?.stop()
             codec?.release()
             codec = null
@@ -345,6 +412,9 @@ class CameraService : Service(), LifecycleOwner {
             
             streamServer?.stop()
             streamServer = null
+
+            webSocketServer?.stop()
+            webSocketServer = null
             
             executor.shutdown()
             

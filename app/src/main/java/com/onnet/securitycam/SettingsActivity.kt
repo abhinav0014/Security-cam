@@ -83,8 +83,44 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "Audio ${if (isChecked) "enabled" else "disabled"}", Toast.LENGTH_SHORT).show()
         }
 
-        // HLS toggle
+        // Protocol selector
+        val protocols = arrayOf(PreferencesManager.PROTOCOL_HLS, PreferencesManager.PROTOCOL_WEBSOCKET, PreferencesManager.PROTOCOL_BOTH)
+        val protocolAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, protocols)
+        binding.spinnerProtocol.setAdapter(protocolAdapter)
+        binding.spinnerProtocol.setOnItemClickListener { _, _, position, _ ->
+            val protocol = protocols[position]
+            preferences.setStreamProtocol(protocol)
+            
+            // Update HLS switch to reflect protocol selection
+            when (protocol) {
+                PreferencesManager.PROTOCOL_HLS -> binding.switchHls.isChecked = true
+                PreferencesManager.PROTOCOL_WEBSOCKET -> binding.switchHls.isChecked = false
+                PreferencesManager.PROTOCOL_BOTH -> binding.switchHls.isChecked = true
+            }
+            
+            Toast.makeText(this, "Protocol set to $protocol", Toast.LENGTH_SHORT).show()
+            
+            // Show warning for WebSocket
+            if (protocol == PreferencesManager.PROTOCOL_WEBSOCKET) {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("WebSocket Mode")
+                    .setMessage("WebSocket streaming requires a custom client application. HLS playlist will not be available.")
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+        }
+
+        // HLS toggle (now updates protocol)
         binding.switchHls.setOnCheckedChangeListener { _, isChecked ->
+            // Update protocol based on HLS switch
+            val currentProtocol = preferences.getStreamProtocol()
+            if (isChecked && currentProtocol == PreferencesManager.PROTOCOL_WEBSOCKET) {
+                preferences.setStreamProtocol(PreferencesManager.PROTOCOL_HLS)
+                binding.spinnerProtocol.setText(PreferencesManager.PROTOCOL_HLS, false)
+            } else if (!isChecked && currentProtocol == PreferencesManager.PROTOCOL_HLS) {
+                preferences.setStreamProtocol(PreferencesManager.PROTOCOL_WEBSOCKET)
+                binding.spinnerProtocol.setText(PreferencesManager.PROTOCOL_WEBSOCKET, false)
+            }
             preferences.setHlsEnabled(isChecked)
             Toast.makeText(this, "HLS ${if (isChecked) "enabled" else "disabled"}", Toast.LENGTH_SHORT).show()
         }
@@ -118,6 +154,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.etPort.setText(preferences.getPort().toString())
         binding.switchAudio.isChecked = preferences.isAudioEnabled()
         binding.switchHls.isChecked = preferences.isHlsEnabled()
+        binding.spinnerProtocol.setText(preferences.getStreamProtocol(), false)
     }
 
     private fun showResetDialog() {
@@ -138,6 +175,7 @@ class SettingsActivity : AppCompatActivity() {
         preferences.setPort(8080)
         preferences.setAudioEnabled(true)
         preferences.setHlsEnabled(true)
+        preferences.setStreamProtocol(PreferencesManager.PROTOCOL_HLS)
         
         loadSettings()
         Toast.makeText(this, "Settings reset to defaults", Toast.LENGTH_SHORT).show()

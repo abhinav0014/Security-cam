@@ -7,9 +7,13 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.onnet.securitycam.databinding.ActivityMainBinding
@@ -19,6 +23,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var preferences: PreferencesManager
     private var isStreaming = false
+    private var cameraProvider: ProcessCameraProvider? = null
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -44,6 +49,7 @@ class MainActivity : AppCompatActivity() {
 
         setupUI()
         updateUI()
+        setupCameraPreview()
     }
 
     private fun setupUI() {
@@ -70,7 +76,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkPermissionsAndStart() {
         val requiredPermissions = mutableListOf(
-            Manifest.permission.CAMERA
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
         )
 
         // Add notification permission for Android 13+
@@ -91,6 +98,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun startStreaming() {
         try {
+            // Unbind preview before starting the service
+            cameraProvider?.unbindAll()
+            
             val intent = Intent(this, CameraService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(intent)
@@ -98,6 +108,7 @@ class MainActivity : AppCompatActivity() {
                 startService(intent)
             }
             isStreaming = true
+            binding.previewUnavailableText.visibility = View.VISIBLE
             updateUI()
             Toast.makeText(this, "Streaming started", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
@@ -109,6 +120,13 @@ class MainActivity : AppCompatActivity() {
         try {
             val intent = Intent(this, CameraService::class.java)
             stopService(intent)
+            isStreaming = false
+            binding.previewUnavailableText.visibility = View.GONE
+            
+            // Delay preview rebinding to ensure service has released camera
+            binding.root.postDelayed({
+                bindPreview()
+            }, 500) // 500ms delay
             isStreaming = false
             updateUI()
             Toast.makeText(this, "Streaming stopped", Toast.LENGTH_SHORT).show()
@@ -124,7 +142,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.apply {
             tvStatus.text = if (isStreaming) "Streaming Active" else "Stream Stopped"
-            tvStatusIndicator.setBackgroundResource(
+            tvStatusIndicator.setImageResource(
                 if (isStreaming) R.drawable.ic_fiber_manual_record 
                 else R.drawable.ic_stop
             )
@@ -134,6 +152,11 @@ class MainActivity : AppCompatActivity() {
             tvResolution.text = preferences.getResolution()
             tvFps.text = "${preferences.getFps()} fps"
             tvBitrate.text = Utils.formatBitrate(preferences.getBitrate())
+            
+            val protocol = preferences.getStreamProtocol()
+            val protocolDisplay = getString(R.string.status_protocol_format, protocol, 
+                if (preferences.isAudioEnabled()) getString(R.string.status_audio_suffix) else "")
+            tvProtocol.text = protocolDisplay
             
             btnToggleStream.text = if (isStreaming) "Stop Streaming" else "Start Streaming"
             
@@ -158,10 +181,51 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
     }
 
+    private fun setupCameraPreview() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        cameraProviderFuture.addListener({
+            try {
+                cameraProvider = cameraProviderFuture.get()
+                bindPreview()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Failed to initialize camera preview", Toast.LENGTH_SHORT).show()
+            }
+        }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun bindPreview() {
+        if (!isStreaming && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            val preview = Preview.Builder().build()
+            preview.setSurfaceProvider(binding.previewView.surfaceProvider)
+            
+            try {
+                cameraProvider?.let { provider ->
+                    provider.unbindAll()
+                    provider.bindToLifecycle(
+                        this,
+                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        preview
+                    )
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this, "Failed to bind camera preview", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+
+
+    override fun onPause() {
+        super.onPause()
+        if (!isStreaming) {
+            cameraProvider?.unbindAll()
+        }
+    }
+
     private fun showPermissionDeniedDialog() {
         MaterialAlertDialogBuilder(this)
             .setTitle("Permissions Required")
-            .setMessage("Camera permission is required for streaming. Please grant the permissions in app settings.")
+            .setMessage("Camera and Microphone permissions are required for streaming. Please grant the permissions in app settings.")
             .setPositiveButton("Settings") { _, _ ->
                 val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                 intent.data = android.net.Uri.parse("package:$packageName")
@@ -210,7 +274,7 @@ class MainActivity : AppCompatActivity() {
                 • Web-based viewer
                 • Network streaming
                 
-                Developed with ❤️
+                Developed By Abster
             """.trimIndent())
             .setPositiveButton("OK", null)
             .show()
@@ -219,6 +283,9 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateUI()
+        if (!isStreaming && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            bindPreview()
+        }
     }
 
     override fun onDestroy() {
