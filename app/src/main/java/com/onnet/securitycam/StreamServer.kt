@@ -1,5 +1,6 @@
 package com.onnet.securitycam
 
+import android.content.Context
 import android.util.Log
 import fi.iki.elonen.NanoHTTPD
 import java.io.File
