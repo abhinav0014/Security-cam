@@ -1,5 +1,25 @@
 <resources>
+    <!-- App -->
     <string name="app_name">SecurityCam</string>
     <string name="welcome_message">Welcome to SecurityCam</string>
     <string name="button_text">Open Stream</string>
+
+    <!-- Streaming Protocol -->
+    <string name="protocol_hls">HLS</string>
+    <string name="protocol_websocket">WebSocket</string>
+    <string name="protocol_both">Both</string>
+    <string name="protocol_selector_hint">Select Protocol</string>
+    <string name="protocol_description">HLS: Compatible with most players, ~6-10s latency\nWebSocket: Lower latency, requires custom client\nBoth: Run both protocols simultaneously</string>
+
+    <!-- WebSocket Info -->
+    <string name="websocket_warning_title">WebSocket Mode</string>
+    <string name="websocket_warning_message">WebSocket streaming requires a custom client application. HLS playlist will not be available.</string>
+    <string name="websocket_port_hint">WebSocket Port</string>
+
+    <!-- Status Messages -->
+    <string name="status_streaming">Streaming %s</string>
+    <string name="status_protocol_format">%s%s</string>
+    <string name="status_audio_suffix"> + audio</string>
+    <string name="restart_streaming_message">Restart streaming to apply protocol changes</string>
+    <string name="protocol_changed">Protocol set to %s</string>
 </resources>

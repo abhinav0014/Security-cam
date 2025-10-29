@@ -1,23 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Custom Color Palette -->
-    <color name="lavender">#B57EDC</color>
-    <color name="sky_blue">#7EDCE6</color>
-    <color name="soft_peach">#E6B57E</color>
+    <color name="lavender">#C8A2C8</color>
+    <color name="sage_green">#BDC9A2</color>
+    <color name="mint_blue">#A2C9BD</color>
+
+    <!-- Gradient Colors - Light Theme -->
+    <color name="gradient_lavender_light">#F5EDF5</color>
+    <color name="gradient_sage_light">#F7F9F0</color>
+    <color name="gradient_mint_light">#F0F7F5</color>
 
     <!-- Material 3 Colors - Light Theme -->
     <color name="md_theme_light_primary">@color/lavender</color>
-    <color name="md_theme_light_onPrimary">#FFFFFF</color>
-    <color name="md_theme_light_primaryContainer">#EFE0F7</color>
-    <color name="md_theme_light_onPrimaryContainer">#431B6C</color>
-    <color name="md_theme_light_secondary">@color/sky_blue</color>
-    <color name="md_theme_light_onSecondary">#FFFFFF</color>
-    <color name="md_theme_light_secondaryContainer">#E0F7F9</color>
-    <color name="md_theme_light_onSecondaryContainer">#1B646C</color>
-    <color name="md_theme_light_tertiary">@color/soft_peach</color>
-    <color name="md_theme_light_onTertiary">#FFFFFF</color>
-    <color name="md_theme_light_tertiaryContainer">#F9F0E0</color>
-    <color name="md_theme_light_onTertiaryContainer">#6C431B</color>
+    <color name="md_theme_light_onPrimary">#3D1F3D</color>
+    <color name="md_theme_light_primaryContainer">#EFE6EF</color>
+    <color name="md_theme_light_onPrimaryContainer">#3D1F3D</color>
+    <color name="md_theme_light_secondary">@color/sage_green</color>
+    <color name="md_theme_light_onSecondary">#3A4230</color>
+    <color name="md_theme_light_secondaryContainer">#EEF2E6</color>
+    <color name="md_theme_light_onSecondaryContainer">#3A4230</color>
+    <color name="md_theme_light_tertiary">@color/mint_blue</color>
+    <color name="md_theme_light_onTertiary">#2F4340</color>
+    <color name="md_theme_light_tertiaryContainer">#E6F2EF</color>
+    <color name="md_theme_light_onTertiaryContainer">#2F4340</color>
     <color name="md_theme_light_error">#BA1A1A</color>
     <color name="md_theme_light_errorContainer">#FFDAD6</color>
     <color name="md_theme_light_onError">#FFFFFF</color>
@@ -31,9 +36,9 @@
     <color name="md_theme_light_outline">#707973</color>
     <color name="md_theme_light_inverseOnSurface">#EFF1EE</color>
     <color name="md_theme_light_inverseSurface">#2E312F</color>
-    <color name="md_theme_light_inversePrimary">#6CDBB4</color>
+    <color name="md_theme_light_inversePrimary">@color/md_theme_dark_primary</color>
     <color name="md_theme_light_shadow">#000000</color>
-    <color name="md_theme_light_surfaceTint">#006C51</color>
+    <color name="md_theme_light_surfaceTint">@color/md_theme_light_primary</color>
     <color name="md_theme_light_outlineVariant">#BFC9C3</color>
     <color name="md_theme_light_scrim">#000000</color>
 </resources>
