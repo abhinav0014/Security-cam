@@ -155,28 +155,23 @@ class WebSocketServer(port: Int) : NanoWSD(port) {
 
     private fun tryParseAvcC(data: ByteArray): Boolean {
         if (data.size < 6) return false
-        
         try {
             // Verify avcC header
             if (data[0] != 1.toByte()) { // configurationVersion
                 return false
             }
-
-            val lengthSize = (data[4] and 0x03) + 1 // lengthSizeMinusOne
+            val lengthSize = ((data[4].toInt() and 0x03) + 1) // lengthSizeMinusOne
             var offset = 5
-
             // Skip 3 bytes
             if (offset + 3 > data.size) return false
             val numSps = data[offset + 1].toInt() and 0x1F
             offset += 2
-
             // Parse SPS
             for (i in 0 until numSps) {
                 if (offset + 2 > data.size) return false
                 val spsLen = (data[offset].toInt() and 0xFF shl 8) or (data[offset + 1].toInt() and 0xFF)
                 offset += 2
                 if (offset + spsLen > data.size) return false
-                
                 lastSpsNal = ByteArray(spsLen + 4)
                 // Add Annex-B start code
                 lastSpsNal!![0] = 0
@@ -186,7 +181,6 @@ class WebSocketServer(port: Int) : NanoWSD(port) {
                 System.arraycopy(data, offset, lastSpsNal!!, 4, spsLen)
                 offset += spsLen
             }
-
             // Parse PPS
             if (offset + 1 > data.size) return false
             val numPps = data[offset++].toInt() and 0xFF
@@ -195,7 +189,6 @@ class WebSocketServer(port: Int) : NanoWSD(port) {
                 val ppsLen = (data[offset].toInt() and 0xFF shl 8) or (data[offset + 1].toInt() and 0xFF)
                 offset += 2
                 if (offset + ppsLen > data.size) return false
-
                 lastPpsNal = ByteArray(ppsLen + 4)
                 // Add Annex-B start code
                 lastPpsNal!![0] = 0
@@ -205,15 +198,11 @@ class WebSocketServer(port: Int) : NanoWSD(port) {
                 System.arraycopy(data, offset, lastPpsNal!!, 4, ppsLen)
                 offset += ppsLen
             }
-
             return true
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing avcC format", e)
             return false
         }
-    }
-        }
-        Log.d(TAG, "Video format set: $format")
     }
 
     fun setAudioFormat(format: MediaFormat) {

@@ -18,7 +18,7 @@
 
     <!-- Status Messages -->
     <string name="status_streaming">Streaming %s</string>
-    <string name="status_protocol_format">%s%s</string>
+    <string name="status_protocol_format">%1$s%2$s</string>
     <string name="status_audio_suffix"> + audio</string>
     <string name="restart_streaming_message">Restart streaming to apply protocol changes</string>
     <string name="protocol_changed">Protocol set to %s</string>
