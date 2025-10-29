@@ -33,7 +33,7 @@ class WebSocketServer(port: Int) : NanoWSD(port) {
         
         if (session.uri != "/stream") {
             Log.w(TAG, "Blocked WebSocket connection to invalid path ${session.uri} from ${session.remoteIpAddress}")
-            return object : WebSocket(session, null) {
+            return object : WebSocket(session) {
                 override fun onOpen() {
                     close(WebSocketFrame.CloseCode.PolicyViolation, "Invalid WebSocket path. Use /stream")
                 }
@@ -48,7 +48,7 @@ class WebSocketServer(port: Int) : NanoWSD(port) {
         return StreamWebSocket(session)
     }
 
-    inner class StreamWebSocket(handshake: IHTTPSession) : WebSocket(handshake, null) {
+    inner class StreamWebSocket(handshake: IHTTPSession) : WebSocket(handshake) {
         override fun onOpen() {
             clients.add(this)
             Log.d(TAG, "WebSocket client connected. Total clients: ${clients.size}")
