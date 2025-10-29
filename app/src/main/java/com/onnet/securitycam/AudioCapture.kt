@@ -195,6 +195,10 @@ class AudioCapture(
                             }
                         }
                     }
+                    else -> {
+                        // No output available or other status codes (INFO_TRY_AGAIN_LATER etc.)
+                        // Continue loop without action
+                    }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Error in capture loop", e)
