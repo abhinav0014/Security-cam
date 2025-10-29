@@ -35,7 +35,7 @@ class WebSocketServer(port: Int) : NanoWSD(port) {
             Log.w(TAG, "Blocked WebSocket connection to invalid path ${session.uri} from ${session.remoteIpAddress}")
             return object : WebSocket(session) {
                 override fun onOpen() {
-                    close(WebSocketFrame.CloseCode.PolicyViolation, "Invalid WebSocket path. Use /stream")
+                    close(WebSocketFrame.CloseCode.PolicyViolation, "Invalid WebSocket path. Use /stream", false)
                 }
                 override fun onClose(code: WebSocketFrame.CloseCode?, reason: String?, initiatedByRemote: Boolean) {}
                 override fun onMessage(message: WebSocketFrame?) {}
@@ -260,7 +260,7 @@ class WebSocketServer(port: Int) : NanoWSD(port) {
                 Log.e(TAG, "Error broadcasting to client: ${e.message}")
                 iterator.remove()
                 try {
-                    client.close(WebSocketFrame.CloseCode.NormalClosure, "Broadcasting error")
+                    client.close(WebSocketFrame.CloseCode.NormalClosure, "Broadcasting error", false)
                 } catch (e: IOException) {
                     Log.e(TAG, "Error closing client socket: ${e.message}")
                 }
@@ -300,7 +300,7 @@ class WebSocketServer(port: Int) : NanoWSD(port) {
             Log.e(TAG, "Error sending config to client: ${e.message}")
             clients.remove(socket)
             try {
-                socket.close(WebSocketFrame.CloseCode.NormalClosure, "Config send error")
+                socket.close(WebSocketFrame.CloseCode.NormalClosure, "Config send error", false)
             } catch (e: IOException) {
                 Log.e(TAG, "Error closing client socket: ${e.message}")
             }
@@ -313,7 +313,7 @@ class WebSocketServer(port: Int) : NanoWSD(port) {
         super.stop()
         clients.forEach { client ->
             try {
-                client.close(WebSocketFrame.CloseCode.NormalClosure, "Server shutting down")
+                client.close(WebSocketFrame.CloseCode.NormalClosure, "Server shutting down", false)
             } catch (e: IOException) {
                 Log.e(TAG, "Error closing client socket during shutdown: ${e.message}")
             }
