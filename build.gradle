@@ -1,21 +1,23 @@
-// build.gradle (Project level)
+// Project-level build.gradle (minimal, only Android Gradle Plugin)
+
 buildscript {
     repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.4'
-    }
-}
+            google()
+                    mavenCentral()
+                        }
+                            dependencies {
+                                    // Android Gradle Plugin
+                                            classpath 'com.android.tools.build:gradle:8.3.0'
+                                                }
+                                                }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
+                                                allprojects {
+                                                    repositories {
+                                                            google()
+                                                                    mavenCentral()
+                                                                        }
+                                                                        }
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
-}
+                                                                        task clean(type: Delete) {
+                                                                            delete rootProject.buildDir
+                                                                            }
