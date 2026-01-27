@@ -43,7 +43,7 @@ public class ScanFragment extends Fragment {
         btnFlash = view.findViewById(R.id.btn_flash);
         btnGallery = view.findViewById(R.id.btn_gallery);
         
-        viewModel = new ViewModelProvider(requireActivity()).get(QRViewModel.class);
+        viewModel = new ViewModelProvider(this).get(QRViewModel.class);
         
         btnFlash.setOnClickListener(v -> toggleFlash());
         btnGallery.setOnClickListener(v -> openGallery());

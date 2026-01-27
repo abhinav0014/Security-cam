@@ -49,8 +49,9 @@ public class CreateFragment extends Fragment {
         btnGenerate = view.findViewById(R.id.btn_generate);
         btnSave = view.findViewById(R.id.btn_save);
         
-        viewModel = new ViewModelProvider(requireActivity()).get(QRViewModel.class);
         
+        viewModel = new ViewModelProvider(this).get(QRViewModel.class);
+
         setupTypeSpinner();
         setupClickListeners();
         

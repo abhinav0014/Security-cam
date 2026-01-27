@@ -1,4 +1,3 @@
-// SavedFragment.java
 package com.qrmaster.app.fragments;
 
 import android.os.Bundle;
@@ -31,11 +30,12 @@ public class SavedFragment extends Fragment {
         emptyView = view.findViewById(R.id.empty_view);
         emptyView.setText("No saved QR codes");
         
+        // FIX: Initialize ViewModel FIRST
+        viewModel = new ViewModelProvider(this).get(QRViewModel.class);
+        
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new QRAdapter(requireContext(), viewModel);
         recyclerView.setAdapter(adapter);
-        
-        viewModel = new ViewModelProvider(requireActivity()).get(QRViewModel.class);
         
         viewModel.getSavedItems().observe(getViewLifecycleOwner(), items -> {
             adapter.setItems(items);

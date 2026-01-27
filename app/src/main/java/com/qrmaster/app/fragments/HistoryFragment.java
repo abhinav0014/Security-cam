@@ -1,4 +1,3 @@
-// HistoryFragment.java
 package com.qrmaster.app.fragments;
 
 import android.os.Bundle;
@@ -30,11 +29,12 @@ public class HistoryFragment extends Fragment {
         recyclerView = view.findViewById(R.id.recycler_view);
         emptyView = view.findViewById(R.id.empty_view);
         
+        // FIX: Initialize ViewModel FIRST
+        viewModel = new ViewModelProvider(this).get(QRViewModel.class);
+        
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new QRAdapter(requireContext(), viewModel);
         recyclerView.setAdapter(adapter);
-        
-        viewModel = new ViewModelProvider(requireActivity()).get(QRViewModel.class);
         
         viewModel.getAllItems().observe(getViewLifecycleOwner(), items -> {
             adapter.setItems(items);
