@@ -1,4 +1,11 @@
 Configuration on demand is an incubating feature.
+
+> Configure project :
+Build was configured to prefer settings repositories over project repositories but repository 'Google' was added by build file 'build.gradle'
+Build was configured to prefer settings repositories over project repositories but repository 'MavenRepo' was added by build file 'build.gradle'
+Build was configured to prefer settings repositories over project repositories but repository 'Google' was added by build file 'build.gradle'
+Build was configured to prefer settings repositories over project repositories but repository 'MavenRepo' was added by build file 'build.gradle'
+
 > Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
@@ -17,7 +24,7 @@ Configuration on demand is an incubating feature.
 > Task :app:processDebugManifestForPackage UP-TO-DATE
 > Task :app:processDebugResources UP-TO-DATE
 
-> Task :app:compileDebugJavaWithJavac
+> Task :app:compileDebugJavaWithJavac FAILED
 /workspaces/QRLD/app/src/main/java/com/qrmaster/app/viewmodels/QRViewModel.java:6: error: cannot find symbol
 import androidx.lifecycle.AndroidViewModel;
                          ^
@@ -28,8 +35,6 @@ public class QRViewModel extends AndroidViewModel {
                                  ^
   symbol: class AndroidViewModel
 2 errors
-
-> Task :app:compileDebugJavaWithJavac FAILED
 
 FAILURE: Build failed with an exception.
 
@@ -297,5 +302,5 @@ Caused by: org.gradle.api.internal.tasks.compile.CompilationFailedException: Com
 	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:47)
 
 
-BUILD FAILED in 12s
+BUILD FAILED in 2s
 15 actionable tasks: 1 executed, 14 up-to-date
