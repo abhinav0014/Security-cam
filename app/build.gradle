@@ -56,11 +56,12 @@ dependencies {
     // Lifecycle components - FIX HERE
     
     // Lifecycle (correct)
-    implementation "androidx.lifecycle:lifecycle-viewmodel-android:2.8.0"
-    implementation "androidx.lifecycle:lifecycle-livedata:2.8.0"
-    implementation "androidx.lifecycle:lifecycle-runtime:2.8.0"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0"
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.8.0"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.8.0"
+    
 
-    // Room Database
+    // Room Database6
     implementation 'androidx.room:room-runtime:2.6.1'
     annotationProcessor 'androidx.room:room-compiler:2.6.1'
 
