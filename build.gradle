@@ -1,5 +1,3 @@
-// Project-level build.gradle (minimal)
-
 buildscript {
     repositories {
         google()
@@ -11,6 +9,15 @@ buildscript {
     }
 }
 
-tasks.register("clean", Delete::class) {
-    delete(rootProject.buildDir)
+// repositories for all modules (optional)
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// Clean task
+task clean(type: Delete) {
+    delete rootProject.buildDir
 }
