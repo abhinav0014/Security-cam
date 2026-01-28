@@ -23,7 +23,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         bottomNav = findViewById(R.id.bottom_navigation);
-        fabQuickScan = findViewById(R.id.fab_quick_scan);
+        //fabQuickScan = findViewById(R.id.fab_quick_scan);
 
         bottomNav.setOnItemSelectedListener(navListener);
         
@@ -35,12 +35,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // Quick scan FAB
-        fabQuickScan.setOnClickListener(v -> {
+        /*fabQuickScan.setOnClickListener(v -> {
             getSupportFragmentManager().beginTransaction()
                 .replace(R.id.fragment_container, new ScanFragment())
                 .commit();
             bottomNav.setSelectedItemId(R.id.nav_scan);
-        });
+        });*/
     }
 
     private BottomNavigationView.OnItemSelectedListener navListener = 
