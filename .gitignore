@@ -103,3 +103,5 @@ hls/
 *~
 *.swp
 *.bak
+
+*.text

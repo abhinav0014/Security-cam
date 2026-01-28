@@ -325,29 +325,30 @@ public class ScanFragment extends Fragment {
 
     @androidx.annotation.RequiresApi(api = Build.VERSION_CODES.Q)
     private void connectWiFiAndroid10Plus(String ssid, String password, String security) {
-        WifiNetworkSpecifier.Builder builder = new WifiNetworkSpecifier.Builder()
-            .setSsid(ssid)
-            .setWpa2Passphrase(password);
 
-        NetworkRequest networkRequest = new NetworkRequest.Builder()
-            .addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI)
-            .setNetworkSpecifier(builder.build())
-            .build();
+    WifiNetworkSuggestion.Builder builder =
+            new WifiNetworkSuggestion.Builder()
+                    .setSsid(ssid);
 
-        ConnectivityManager connectivityManager = 
-            (ConnectivityManager) requireContext().getSystemService(Context.CONNECTIVITY_SERVICE);
-        
-        ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
-            @Override
-            public void onAvailable(android.net.Network network) {
-                connectivityManager.bindProcessToNetwork(network);
-                requireActivity().runOnUiThread(() -> 
-                    Toast.makeText(requireContext(), "Connected to WiFi", Toast.LENGTH_SHORT).show());
-            }
-        };
-        
-        connectivityManager.requestNetwork(networkRequest, networkCallback);
+    if ("WPA".equalsIgnoreCase(security) || "WPA2".equalsIgnoreCase(security)) {
+        builder.setWpa2Passphrase(password);
+    } else if ("WPA3".equalsIgnoreCase(security)) {
+        builder.setWpa3Passphrase(password);
+    } else {
+        builder.setIsAppInteractionRequired(true);
     }
+
+    ArrayList<WifiNetworkSuggestion> suggestions = new ArrayList<>();
+    suggestions.add(builder.build());
+
+    Intent intent = new Intent(Settings.ACTION_WIFI_ADD_NETWORKS);
+    intent.putParcelableArrayListExtra(
+            Settings.EXTRA_WIFI_NETWORK_LIST,
+            suggestions
+    );
+
+    startActivity(intent);
+}
 
     @SuppressWarnings("deprecation")
     private void connectWiFiLegacy(String ssid, String password, String security) {
