@@ -12,23 +12,6 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardElevation="2dp"
-            app:cardCornerRadius="16dp"
-            android:layout_marginBottom="16dp">
-
-            <ImageView
-                android:id="@+id/qr_preview"
-                android:layout_width="match_parent"
-                android:layout_height="300dp"
-                android:scaleType="fitCenter"
-                android:padding="24dp"
-                android:contentDescription="QR Code Preview"/>
-
-        </com.google.android.material.card.MaterialCardView>
-
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/type_dropdown"
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
@@ -45,22 +28,13 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/content_input_layout"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        <!-- Dynamic fields container - fields added programmatically based on type -->
+        <LinearLayout
+            android:id="@+id/dynamic_fields_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Content"
-            android:layout_marginBottom="16dp">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/content_input"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minLines="3"
-                android:gravity="top|start"/>
-
-        </com.google.android.material.textfield.TextInputLayout>
+            android:orientation="vertical"
+            android:layout_marginBottom="16dp"/>
 
         <TextView
             android:layout_width="wrap_content"
@@ -68,7 +42,8 @@
             android:text="Customization"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:layout_marginBottom="8dp"/>
+            android:layout_marginBottom="8dp"
+            android:layout_marginTop="8dp"/>
 
         <LinearLayout
             android:layout_width="match_parent"
