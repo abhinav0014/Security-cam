@@ -1,26 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- App -->
-    <string name="app_name">QRLD</string>
-    <string name="welcome_message">Welcome to SecurityCam</string>
-    <string name="button_text">Open Stream</string>
-
-    <!-- Streaming Protocol -->
-    <string name="protocol_hls">HLS</string>
-    <string name="protocol_websocket">WebSocket</string>
-    <string name="protocol_both">Both</string>
-    <string name="protocol_selector_hint">Select Protocol</string>
-    <string name="protocol_description">HLS: Compatible with most players, ~6-10s latency\nWebSocket: Lower latency, requires custom client\nBoth: Run both protocols simultaneously</string>
-
-    <!-- WebSocket Info -->
-    <string name="websocket_warning_title">WebSocket Mode</string>
-    <string name="websocket_warning_message">WebSocket streaming requires a custom client application. HLS playlist will not be available.</string>
-    <string name="websocket_port_hint">WebSocket Port</string>
-
-    <!-- Status Messages -->
-    <string name="status_streaming">Streaming %s</string>
-    <string name="status_protocol_format">%1$s%2$s</string>
-    <string name="status_audio_suffix"> + audio</string>
-    <string name="restart_streaming_message">Restart streaming to apply protocol changes</string>
-    <string name="protocol_changed">Protocol set to %s</string>
+    <string name="app_name">Camera Stream</string>
+    <string name="start_streaming">Start Streaming</string>
+    <string name="stop_streaming">Stop Streaming</string>
+    <string name="switch_camera">Switch Camera</string>
+    <string name="streaming_active">Streaming Active</string>
+    <string name="ready_to_stream">Ready to Stream</string>
+    <string name="stream_url">Stream URL</string>
+    <string name="copy_url">Copy</string>
+    <string name="quality_low">Low (640x480)</string>
+    <string name="quality_medium">Medium (1280x720)</string>
+    <string name="quality_high">High (1920x1080)</string>
+    <string name="stream_quality">Stream Quality</string>
+    <string name="camera_permission_required">Camera permission is required</string>
+    <string name="url_copied">URL copied to clipboard</string>
+    <string name="connect_info">Connect to the same Wi-Fi network to view the stream</string>
+    <string name="open_url_info">Open this URL on any device connected to the same network</string>
 </resources>
