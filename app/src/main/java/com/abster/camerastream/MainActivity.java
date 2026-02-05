@@ -1,12 +1,16 @@
 package com.abster.camerastream;
 
 import android.Manifest;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.text.format.Formatter;
 import android.view.View;
 import android.widget.Toast;
@@ -34,6 +38,24 @@ public class MainActivity extends AppCompatActivity {
     private CameraSelector cameraSelector;
     private boolean isStreaming = false;
     private StreamQuality currentQuality = StreamQuality.MEDIUM;
+    private StreamingService streamingService;
+    private boolean serviceBound = false;
+
+    private final ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            StreamingService.LocalBinder binder = (StreamingService.LocalBinder) service;
+            streamingService = binder.getService();
+            serviceBound = true;
+            startCamera();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            serviceBound = false;
+            streamingService = null;
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,7 +79,7 @@ public class MainActivity extends AppCompatActivity {
                 cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
                 binding.switchCamera.setImageResource(R.drawable.ic_camera_rear);
             }
-            if (isStreaming) {
+            if (isStreaming && serviceBound) {
                 startCamera();
             }
         });
@@ -83,8 +105,8 @@ public class MainActivity extends AppCompatActivity {
                     currentQuality = StreamQuality.HIGH;
                 }
                 
-                if (isStreaming) {
-                    // Restart camera with new quality
+                if (isStreaming && serviceBound) {
+                    streamingService.setQuality(currentQuality);
                     startCamera();
                 }
             }
@@ -168,9 +190,9 @@ public class MainActivity extends AppCompatActivity {
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build();
 
-        if (isStreaming) {
+        if (isStreaming && serviceBound && streamingService != null) {
             imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this),
-                    StreamingService.getImageAnalyzer());
+                    streamingService.getImageAnalyzer());
         }
 
         try {
@@ -191,18 +213,30 @@ public class MainActivity extends AppCompatActivity {
             startService(serviceIntent);
         }
 
+        bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
+
         isStreaming = true;
-        startCamera();
         updateUIState(true);
         displayStreamingInfo();
     }
 
     private void stopStreaming() {
+        if (serviceBound) {
+            unbindService(serviceConnection);
+            serviceBound = false;
+        }
+        
         Intent serviceIntent = new Intent(this, StreamingService.class);
         stopService(serviceIntent);
         
         isStreaming = false;
+        streamingService = null;
         updateUIState(false);
+        
+        // Restart camera without analyzer
+        if (cameraProvider != null) {
+            startCamera();
+        }
     }
 
     private void updateUIState(boolean streaming) {

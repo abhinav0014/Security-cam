@@ -6,12 +6,11 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.media.Image;
+import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
@@ -26,7 +25,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.Map;
 
 import fi.iki.elonen.NanoHTTPD;
 
@@ -38,21 +36,34 @@ public class StreamingService extends Service {
 
     private WebServer webServer;
     private static volatile byte[] latestFrame = null;
-    private static ImageAnalysis.Analyzer imageAnalyzer;
     private StreamQuality quality = StreamQuality.MEDIUM;
+    
+    private final ImageAnalysis.Analyzer imageAnalyzer = new ImageAnalysis.Analyzer() {
+        @Override
+        public void analyze(@androidx.annotation.NonNull ImageProxy imageProxy) {
+            try {
+                processImage(imageProxy);
+            } catch (Exception e) {
+                Log.e(TAG, "Error analyzing image", e);
+            } finally {
+                imageProxy.close();
+            }
+        }
+    };
+
+    // Binder for MainActivity to get service instance
+    public class LocalBinder extends Binder {
+        StreamingService getService() {
+            return StreamingService.this;
+        }
+    }
+
+    private final IBinder binder = new LocalBinder();
 
     @Override
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        
-        imageAnalyzer = new ImageAnalysis.Analyzer() {
-            @Override
-            public void analyze(@androidx.annotation.NonNull ImageProxy imageProxy) {
-                processImage(imageProxy);
-                imageProxy.close();
-            }
-        };
     }
 
     @Override
@@ -116,8 +127,12 @@ public class StreamingService extends Service {
         }
     }
 
-    public static ImageAnalysis.Analyzer getImageAnalyzer() {
+    public ImageAnalysis.Analyzer getImageAnalyzer() {
         return imageAnalyzer;
+    }
+
+    public void setQuality(StreamQuality newQuality) {
+        this.quality = newQuality;
     }
 
     private void createNotificationChannel() {
@@ -164,7 +179,7 @@ public class StreamingService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return binder;
     }
 
     private class WebServer extends NanoHTTPD {
