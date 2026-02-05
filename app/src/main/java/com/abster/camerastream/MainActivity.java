@@ -32,20 +32,35 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends AppCompatActivity {
+
     private static final int PERMISSION_REQUEST_CODE = 100;
+
     private ActivityMainBinding binding;
     private ProcessCameraProvider cameraProvider;
-    private CameraSelector cameraSelector;
+    private CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
+
     private boolean isStreaming = false;
+    private boolean serviceBound = false;
+
     private StreamQuality currentQuality = StreamQuality.MEDIUM;
     private StreamingService streamingService;
-    private boolean serviceBound = false;
+    private ImageAnalysis.Analyzer analyzer;
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            StreamingService.LocalBinder binder = (StreamingService.LocalBinder) service;
+            StreamingService.LocalBinder binder =
+                    (StreamingService.LocalBinder) service;
+
             streamingService = binder.getService();
+            analyzer = streamingService.getImageAnalyzer();
+
+            if (analyzer == null) {
+                Toast.makeText(MainActivity.this,
+                        "Analyzer not ready yet", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             serviceBound = true;
             startCamera();
         }
@@ -54,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
         public void onServiceDisconnected(ComponentName name) {
             serviceBound = false;
             streamingService = null;
+            analyzer = null;
         }
     };
 
@@ -68,23 +84,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupUI() {
-        // Camera selector
-        cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
-        
+
         binding.switchCamera.setOnClickListener(v -> {
-            if (cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
-                cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA;
-                binding.switchCamera.setImageResource(R.drawable.ic_camera_front);
-            } else {
-                cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
-                binding.switchCamera.setImageResource(R.drawable.ic_camera_rear);
-            }
-            if (isStreaming && serviceBound) {
+            cameraSelector =
+                    cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA
+                            ? CameraSelector.DEFAULT_FRONT_CAMERA
+                            : CameraSelector.DEFAULT_BACK_CAMERA;
+
+            if (cameraProvider != null) {
                 startCamera();
             }
         });
 
-        // Start/Stop streaming
         binding.btnStartStop.setOnClickListener(v -> {
             if (isStreaming) {
                 stopStreaming();
@@ -93,22 +104,17 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Quality selection
         binding.chipGroupQuality.setOnCheckedStateChangeListener((group, checkedIds) -> {
-            if (!checkedIds.isEmpty()) {
-                int chipId = checkedIds.get(0);
-                if (chipId == R.id.chipLow) {
-                    currentQuality = StreamQuality.LOW;
-                } else if (chipId == R.id.chipMedium) {
-                    currentQuality = StreamQuality.MEDIUM;
-                } else if (chipId == R.id.chipHigh) {
-                    currentQuality = StreamQuality.HIGH;
-                }
-                
-                if (isStreaming && serviceBound) {
-                    streamingService.setQuality(currentQuality);
-                    startCamera();
-                }
+            if (checkedIds.isEmpty()) return;
+
+            int id = checkedIds.get(0);
+            if (id == R.id.chipLow) currentQuality = StreamQuality.LOW;
+            else if (id == R.id.chipMedium) currentQuality = StreamQuality.MEDIUM;
+            else if (id == R.id.chipHigh) currentQuality = StreamQuality.HIGH;
+
+            if (isStreaming && serviceBound && streamingService != null) {
+                streamingService.setQuality(currentQuality);
+                startCamera();
             }
         });
 
@@ -116,62 +122,42 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkAndRequestPermissions() {
-        List<String> permissionsNeeded = new ArrayList<>();
+        List<String> permissions = new ArrayList<>();
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
-            permissionsNeeded.add(Manifest.permission.CAMERA);
+            permissions.add(Manifest.permission.CAMERA);
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                permissionsNeeded.add(Manifest.permission.POST_NOTIFICATIONS);
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(this,
+                        Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
         }
 
-        if (!permissionsNeeded.isEmpty()) {
-            ActivityCompat.requestPermissions(this,
-                    permissionsNeeded.toArray(new String[0]),
-                    PERMISSION_REQUEST_CODE);
+        if (!permissions.isEmpty()) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    permissions.toArray(new String[0]),
+                    PERMISSION_REQUEST_CODE
+            );
         } else {
             initializeCamera();
         }
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            boolean allGranted = true;
-            for (int result : grantResults) {
-                if (result != PackageManager.PERMISSION_GRANTED) {
-                    allGranted = false;
-                    break;
-                }
-            }
-
-            if (allGranted) {
-                initializeCamera();
-            } else {
-                Toast.makeText(this, "Camera permission is required", Toast.LENGTH_LONG).show();
-                finish();
-            }
-        }
-    }
-
     private void initializeCamera() {
-        ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
+        ListenableFuture<ProcessCameraProvider> future =
                 ProcessCameraProvider.getInstance(this);
 
-        cameraProviderFuture.addListener(() -> {
+        future.addListener(() -> {
             try {
-                cameraProvider = cameraProviderFuture.get();
+                cameraProvider = future.get();
                 startCamera();
             } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(this, "Error starting camera: " + e.getMessage(),
+                Toast.makeText(this,
+                        "Camera error: " + e.getMessage(),
                         Toast.LENGTH_SHORT).show();
             }
         }, ContextCompat.getMainExecutor(this));
@@ -187,33 +173,36 @@ public class MainActivity extends AppCompatActivity {
 
         ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
                 .setTargetResolution(currentQuality.getResolution())
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setBackpressureStrategy(
+                        ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build();
 
-        if (isStreaming && serviceBound && streamingService != null) {
-            imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this),
-                    streamingService.getImageAnalyzer());
+        if (isStreaming && serviceBound && analyzer != null) {
+            imageAnalysis.setAnalyzer(
+                    ContextCompat.getMainExecutor(this),
+                    analyzer
+            );
         }
 
-        try {
-            cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis);
-        } catch (Exception e) {
-            Toast.makeText(this, "Error binding camera: " + e.getMessage(),
-                    Toast.LENGTH_SHORT).show();
-        }
+        cameraProvider.bindToLifecycle(
+                this,
+                cameraSelector,
+                preview,
+                imageAnalysis
+        );
     }
 
     private void startStreaming() {
-        Intent serviceIntent = new Intent(this, StreamingService.class);
-        serviceIntent.putExtra("quality", currentQuality.name());
-        
+        Intent intent = new Intent(this, StreamingService.class);
+        intent.putExtra("quality", currentQuality.name());
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent);
+            startForegroundService(intent);
         } else {
-            startService(serviceIntent);
+            startService(intent);
         }
 
-        bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
 
         isStreaming = true;
         updateUIState(true);
@@ -225,70 +214,39 @@ public class MainActivity extends AppCompatActivity {
             unbindService(serviceConnection);
             serviceBound = false;
         }
-        
-        Intent serviceIntent = new Intent(this, StreamingService.class);
-        stopService(serviceIntent);
-        
+
+        stopService(new Intent(this, StreamingService.class));
+
         isStreaming = false;
         streamingService = null;
+        analyzer = null;
+
         updateUIState(false);
-        
-        // Restart camera without analyzer
-        if (cameraProvider != null) {
-            startCamera();
-        }
+        startCamera();
     }
 
     private void updateUIState(boolean streaming) {
-        if (streaming) {
-            binding.btnStartStop.setText("Stop Streaming");
-            binding.btnStartStop.setBackgroundColor(getColor(R.color.red_500));
-            binding.statusIndicator.setBackgroundResource(R.drawable.status_active);
-            binding.tvStatus.setText("Streaming Active");
-            binding.chipGroupQuality.setEnabled(false);
-        } else {
-            binding.btnStartStop.setText("Start Streaming");
-            binding.btnStartStop.setBackgroundColor(getColor(R.color.green_500));
-            binding.statusIndicator.setBackgroundResource(R.drawable.status_inactive);
-            binding.tvStatus.setText("Ready to Stream");
-            binding.chipGroupQuality.setEnabled(true);
-            binding.urlContainer.setVisibility(View.GONE);
-        }
+        binding.btnStartStop.setText(streaming ? "Stop Streaming" : "Start Streaming");
+        binding.chipGroupQuality.setEnabled(!streaming);
+        binding.urlContainer.setVisibility(streaming ? View.VISIBLE : View.GONE);
     }
 
     private void displayStreamingInfo() {
-        String ipAddress = getLocalIpAddress();
-        int port = StreamingService.PORT;
-        
-        String url = "http://" + ipAddress + ":" + port;
+        String url = "http://" + getLocalIpAddress() + ":" + StreamingService.PORT;
         binding.tvUrl.setText(url);
-        binding.urlContainer.setVisibility(View.VISIBLE);
-        
-        binding.btnCopyUrl.setOnClickListener(v -> {
-            android.content.ClipboardManager clipboard = (android.content.ClipboardManager)
-                    getSystemService(CLIPBOARD_SERVICE);
-            android.content.ClipData clip = android.content.ClipData.newPlainText("Stream URL", url);
-            clipboard.setPrimaryClip(clip);
-            Toast.makeText(this, "URL copied to clipboard", Toast.LENGTH_SHORT).show();
-        });
     }
 
     private String getLocalIpAddress() {
-        WifiManager wifiManager = (WifiManager) getApplicationContext()
-                .getSystemService(WIFI_SERVICE);
-        WifiInfo wifiInfo = wifiManager.getConnectionInfo();
-        int ip = wifiInfo.getIpAddress();
-        
-        @SuppressWarnings("deprecation")
-        String ipAddress = Formatter.formatIpAddress(ip);
-        return ipAddress;
+        WifiManager wifiManager =
+                (WifiManager) getApplicationContext()
+                        .getSystemService(WIFI_SERVICE);
+        WifiInfo info = wifiManager.getConnectionInfo();
+        return Formatter.formatIpAddress(info.getIpAddress());
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (isStreaming) {
-            stopStreaming();
-        }
+        if (isStreaming) stopStreaming();
     }
 }
