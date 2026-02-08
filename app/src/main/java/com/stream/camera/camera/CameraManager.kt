@@ -20,8 +20,11 @@ import kotlin.coroutines.resumeWithException
 /**
  * Camera Manager - Handles camera operations
  * Provides frames to the HLS encoder
+ * 
+ * @param context Application context for utility functions
+ * @param lifecycleOwner Activity lifecycle owner for CameraX binding
  */
-class CameraManager(private val context: Context) {
+class CameraManager(private val context: Context, private val lifecycleOwner: LifecycleOwner) {
     
     private var cameraProvider: ProcessCameraProvider? = null
     private var imageAnalysis: ImageAnalysis? = null
@@ -52,9 +55,6 @@ class CameraManager(private val context: Context) {
                 }
             
             provider.unbindAll()
-            
-            val lifecycleOwner = context as? LifecycleOwner
-                ?: throw IllegalStateException("Context must be a LifecycleOwner")
             
             provider.bindToLifecycle(
                 lifecycleOwner,
@@ -90,9 +90,6 @@ class CameraManager(private val context: Context) {
         }
         
         cameraProvider?.let { provider ->
-            val lifecycleOwner = context as? LifecycleOwner
-                ?: throw IllegalStateException("Context must be a LifecycleOwner")
-            
             provider.unbindAll()
             provider.bindToLifecycle(
                 lifecycleOwner,

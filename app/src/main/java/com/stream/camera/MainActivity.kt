@@ -38,6 +38,12 @@ class MainActivity : ComponentActivity() {
     private var streamUrl by mutableStateOf("")
     private var errorMessage by mutableStateOf<String?>(null)
     
+    companion object {
+        private var instance: MainActivity? = null
+        
+        fun getInstance(): MainActivity? = instance
+    }
+    
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -49,6 +55,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        instance = this
         
         requestPermissions()
         
@@ -122,6 +129,7 @@ class MainActivity : ComponentActivity() {
         if (isStreaming) {
             stopStreaming()
         }
+        instance = null
     }
 }
 

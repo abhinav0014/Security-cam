@@ -2,6 +2,7 @@ package com.stream.camera.server
 
 import android.content.Context
 import android.util.Log
+import com.stream.camera.MainActivity
 import com.stream.camera.encoder.HLSEncoder
 import com.stream.camera.camera.CameraManager
 import io.ktor.http.*
@@ -46,7 +47,10 @@ class StreamServer(private val context: Context) {
     fun start() {
         try {
             // Initialize camera and encoder
-            cameraManager = CameraManager(context)
+            val lifecycleOwner = MainActivity.getInstance()
+                ?: throw IllegalStateException("MainActivity must be available for camera streaming")
+            
+            cameraManager = CameraManager(context, lifecycleOwner)
             hlsEncoder = HLSEncoder(streamDir)
             
             // Start camera capture
