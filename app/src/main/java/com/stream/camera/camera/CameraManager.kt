@@ -8,8 +8,9 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
-import com.stream.camera.MainActivity
+import androidx.lifecycle.LifecycleRegistry
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.nio.ByteBuffer
 import java.util.concurrent.ExecutorService
@@ -20,12 +21,10 @@ import kotlin.coroutines.resumeWithException
 /**
  * Camera Manager - Handles camera operations
  * Provides frames to the HLS encoder
- * 
- * @param context Application context for utility functions
- * @param lifecycleOwner Activity lifecycle owner for CameraX binding
  */
-class CameraManager(private val context: Context, private val lifecycleOwner: LifecycleOwner) {
+class CameraManager(private val context: Context) : LifecycleOwner {
     
+    private val lifecycleRegistry = LifecycleRegistry(this)
     private var cameraProvider: ProcessCameraProvider? = null
     private var imageAnalysis: ImageAnalysis? = null
     private var cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -39,8 +38,18 @@ class CameraManager(private val context: Context, private val lifecycleOwner: Li
         private const val TAG = "CameraManager"
     }
     
+    init {
+        lifecycleRegistry.currentState = Lifecycle.State.CREATED
+    }
+    
+    override val lifecycle: Lifecycle
+        get() = lifecycleRegistry
+    
     suspend fun startCamera(onFrameAvailable: (ByteArray) -> Unit) {
         try {
+            lifecycleRegistry.currentState = Lifecycle.State.STARTED
+            lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+            
             val provider = getCameraProvider()
             cameraProvider = provider
             
@@ -57,7 +66,7 @@ class CameraManager(private val context: Context, private val lifecycleOwner: Li
             provider.unbindAll()
             
             provider.bindToLifecycle(
-                lifecycleOwner,
+                this,
                 currentCameraSelector,
                 imageAnalysis
             )
@@ -76,6 +85,7 @@ class CameraManager(private val context: Context, private val lifecycleOwner: Li
             cameraProvider?.unbindAll()
             imageAnalysis = null
             isStreamingActive = false
+            lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
             Log.d(TAG, "Camera stopped")
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping camera", e)
@@ -92,7 +102,7 @@ class CameraManager(private val context: Context, private val lifecycleOwner: Li
         cameraProvider?.let { provider ->
             provider.unbindAll()
             provider.bindToLifecycle(
-                lifecycleOwner,
+                this,
                 currentCameraSelector,
                 imageAnalysis!!
             )
@@ -141,11 +151,25 @@ class CameraManager(private val context: Context, private val lifecycleOwner: Li
     
     private fun processImageProxy(imageProxy: ImageProxy, onFrameAvailable: (ByteArray) -> Unit) {
         try {
-            val buffer = imageProxy.planes[0].buffer
-            val data = ByteArray(buffer.remaining())
-            buffer.get(data)
+            // Convert YUV to NV21 format
+            val yBuffer = imageProxy.planes[0].buffer
+            val uBuffer = imageProxy.planes[1].buffer
+            val vBuffer = imageProxy.planes[2].buffer
+
+            val ySize = yBuffer.remaining()
+            val uSize = uBuffer.remaining()
+            val vSize = vBuffer.remaining()
+
+            val nv21 = ByteArray(ySize + uSize + vSize)
+
+            // Copy Y
+            yBuffer.get(nv21, 0, ySize)
             
-            onFrameAvailable(data)
+            // Copy UV (interleaved)
+            vBuffer.get(nv21, ySize, vSize)
+            uBuffer.get(nv21, ySize + vSize, uSize)
+            
+            onFrameAvailable(nv21)
         } catch (e: Exception) {
             Log.e(TAG, "Error processing frame", e)
         } finally {

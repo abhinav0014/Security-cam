@@ -252,6 +252,27 @@ class StreamServer(private val context: Context) {
                     width: 100%;
                     height: 100%;
                 }
+                .loading {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    color: white;
+                    text-align: center;
+                }
+                .spinner {
+                    border: 4px solid #f3f3f3;
+                    border-top: 4px solid #667eea;
+                    border-radius: 50%;
+                    width: 50px;
+                    height: 50px;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto 20px;
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
                 .controls {
                     display: flex;
                     gap: 15px;
@@ -297,6 +318,16 @@ class StreamServer(private val context: Context) {
                     0%, 100% { opacity: 1; }
                     50% { opacity: 0.5; }
                 }
+                .debug {
+                    margin-top: 20px;
+                    padding: 15px;
+                    background: #f9f9f9;
+                    border-radius: 10px;
+                    font-family: monospace;
+                    font-size: 12px;
+                    max-height: 200px;
+                    overflow-y: auto;
+                }
             </style>
             <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
         </head>
@@ -306,50 +337,161 @@ class StreamServer(private val context: Context) {
                 <p class="subtitle">Created by ABSTER</p>
                 
                 <div class="video-container">
-                    <video id="video" controls autoplay muted></video>
+                    <video id="video" controls muted playsinline></video>
+                    <div class="loading" id="loading">
+                        <div class="spinner"></div>
+                        <div>Loading stream...</div>
+                    </div>
                 </div>
                 
                 <div class="controls">
                     <a href="/control" class="btn btn-primary">Open Control Panel</a>
+                    <button onclick="retryStream()" class="btn btn-primary">Retry Stream</button>
                 </div>
                 
                 <div class="status">
                     <span class="status-indicator"></span>
-                    <span id="status">Initializing stream...</span>
+                    <span id="status">Checking stream...</span>
+                </div>
+                
+                <div class="debug" id="debug">
+                    <div>Debug Log:</div>
                 </div>
             </div>
             
             <script>
                 const video = document.getElementById('video');
                 const status = document.getElementById('status');
+                const loading = document.getElementById('loading');
+                const debug = document.getElementById('debug');
+                let hls = null;
+                let retryCount = 0;
+                const maxRetries = 10;
                 
-                if (Hls.isSupported()) {
-                    const hls = new Hls({
-                        enableWorker: true,
-                        lowLatencyMode: true,
-                        backBufferLength: 90
-                    });
-                    
-                    hls.loadSource('/stream.m3u8');
-                    hls.attachMedia(video);
-                    
-                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        video.play();
-                        status.textContent = 'Stream connected';
-                    });
-                    
-                    hls.on(Hls.Events.ERROR, function(event, data) {
-                        if (data.fatal) {
-                            status.textContent = 'Stream error: ' + data.type;
-                        }
-                    });
-                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    video.src = '/stream.m3u8';
-                    video.addEventListener('loadedmetadata', function() {
-                        video.play();
-                        status.textContent = 'Stream connected';
-                    });
+                function log(message) {
+                    const time = new Date().toLocaleTimeString();
+                    debug.innerHTML += '<div>[' + time + '] ' + message + '</div>';
+                    debug.scrollTop = debug.scrollHeight;
+                    console.log(message);
                 }
+                
+                function retryStream() {
+                    log('Manual retry triggered');
+                    retryCount = 0;
+                    initStream();
+                }
+                
+                function initStream() {
+                    const streamUrl = '/stream.m3u8';
+                    log('Attempting to load stream: ' + streamUrl);
+                    
+                    if (hls) {
+                        hls.destroy();
+                    }
+                    
+                    if (Hls.isSupported()) {
+                        log('HLS.js is supported');
+                        hls = new Hls({
+                            debug: false,
+                            enableWorker: true,
+                            lowLatencyMode: true,
+                            backBufferLength: 90,
+                            maxBufferLength: 30,
+                            maxBufferSize: 60 * 1000 * 1000,
+                            maxMaxBufferLength: 60
+                        });
+                        
+                        hls.loadSource(streamUrl);
+                        hls.attachMedia(video);
+                        
+                        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                            log('Manifest parsed successfully');
+                            loading.style.display = 'none';
+                            video.play().then(() => {
+                                status.textContent = 'Stream connected';
+                                log('Video playback started');
+                            }).catch(err => {
+                                log('Play error: ' + err.message);
+                                status.textContent = 'Click play to start';
+                            });
+                        });
+                        
+                        hls.on(Hls.Events.ERROR, function(event, data) {
+                            log('HLS Error: ' + data.type + ' - ' + data.details);
+                            if (data.fatal) {
+                                switch(data.type) {
+                                    case Hls.ErrorTypes.NETWORK_ERROR:
+                                        log('Network error, attempting recovery...');
+                                        status.textContent = 'Network error, retrying...';
+                                        if (retryCount < maxRetries) {
+                                            retryCount++;
+                                            setTimeout(() => hls.startLoad(), 1000);
+                                        } else {
+                                            status.textContent = 'Stream unavailable. Please check if streaming is active.';
+                                        }
+                                        break;
+                                    case Hls.ErrorTypes.MEDIA_ERROR:
+                                        log('Media error, attempting recovery...');
+                                        hls.recoverMediaError();
+                                        break;
+                                    default:
+                                        log('Fatal error, destroying player');
+                                        hls.destroy();
+                                        status.textContent = 'Stream error: ' + data.details;
+                                        break;
+                                }
+                            }
+                        });
+                        
+                        hls.on(Hls.Events.LEVEL_LOADED, function(event, data) {
+                            log('Level loaded: ' + data.details.fragments.length + ' fragments');
+                        });
+                        
+                    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                        log('Native HLS support detected');
+                        video.src = streamUrl;
+                        video.addEventListener('loadedmetadata', function() {
+                            log('Metadata loaded');
+                            loading.style.display = 'none';
+                            video.play();
+                            status.textContent = 'Stream connected';
+                        });
+                        video.addEventListener('error', function(e) {
+                            log('Video error: ' + e.message);
+                            status.textContent = 'Stream error';
+                        });
+                    } else {
+                        log('HLS not supported in this browser');
+                        status.textContent = 'HLS not supported';
+                    }
+                }
+                
+                // Check stream status
+                fetch('/api/status')
+                    .then(r => r.json())
+                    .then(data => {
+                        log('Server status: streaming=' + data.isStreaming + ', segments=' + data.segmentCount);
+                        if (data.isStreaming) {
+                            initStream();
+                        } else {
+                            status.textContent = 'Streaming not active. Start streaming from the app.';
+                            loading.textContent = 'Stream not started';
+                        }
+                    })
+                    .catch(err => {
+                        log('Status check failed: ' + err.message);
+                        // Try anyway
+                        initStream();
+                    });
+                
+                // Auto-retry every 5 seconds if not playing
+                setInterval(() => {
+                    if (video.paused && video.readyState < 3 && retryCount < maxRetries) {
+                        log('Auto-retry: video not playing');
+                        retryCount++;
+                        initStream();
+                    }
+                }, 5000);
             </script>
         </body>
         </html>

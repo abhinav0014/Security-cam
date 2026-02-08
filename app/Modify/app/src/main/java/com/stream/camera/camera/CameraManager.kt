@@ -151,11 +151,25 @@ class CameraManager(private val context: Context) : LifecycleOwner {
     
     private fun processImageProxy(imageProxy: ImageProxy, onFrameAvailable: (ByteArray) -> Unit) {
         try {
-            val buffer = imageProxy.planes[0].buffer
-            val data = ByteArray(buffer.remaining())
-            buffer.get(data)
+            // Convert YUV to NV21 format
+            val yBuffer = imageProxy.planes[0].buffer
+            val uBuffer = imageProxy.planes[1].buffer
+            val vBuffer = imageProxy.planes[2].buffer
+
+            val ySize = yBuffer.remaining()
+            val uSize = uBuffer.remaining()
+            val vSize = vBuffer.remaining()
+
+            val nv21 = ByteArray(ySize + uSize + vSize)
+
+            // Copy Y
+            yBuffer.get(nv21, 0, ySize)
             
-            onFrameAvailable(data)
+            // Copy UV (interleaved)
+            vBuffer.get(nv21, ySize, vSize)
+            uBuffer.get(nv21, ySize + vSize, uSize)
+            
+            onFrameAvailable(nv21)
         } catch (e: Exception) {
             Log.e(TAG, "Error processing frame", e)
         } finally {
